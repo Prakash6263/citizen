@@ -37,6 +37,12 @@ const auditLogSchema = new mongoose.Schema(
         "suspicious_activity",
         "failed_login_attempt",
         "token_refresh",
+
+        // Policy management actions
+        "policy_create",
+        "policy_update",
+        "policy_status_update",
+        "policy_restore",
       ],
     },
 
