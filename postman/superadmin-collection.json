@@ -1,0 +1,494 @@
+{
+  "info": {
+    "name": "Municipality Platform - Superadmin API Collection (Corrected)",
+    "description": "Dedicated API collection for Superadmin operations with actual endpoints from the codebase",
+    "version": "2.1.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{superadmin_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000/api",
+      "type": "string"
+    },
+    {
+      "key": "superadmin_token",
+      "value": "",
+      "type": "string",
+      "description": "Superadmin authentication token"
+    },
+    {
+      "key": "application_id",
+      "value": "",
+      "type": "string",
+      "description": "Project application ID"
+    },
+    {
+      "key": "citizen_id",
+      "value": "",
+      "type": "string",
+      "description": "Citizen user ID"
+    },
+    {
+      "key": "project_id",
+      "value": "",
+      "type": "string",
+      "description": "Project ID"
+    },
+    {
+      "key": "government_id",
+      "value": "",
+      "type": "string",
+      "description": "Government entity ID"
+    },
+    {
+      "key": "approval_id",
+      "value": "",
+      "type": "string",
+      "description": "Registration approval record ID"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 Superadmin Authentication",
+      "description": "Superadmin login and authentication endpoints",
+      "item": [
+        {
+          "name": "Superadmin Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('superadmin_token', response.data.token);",
+                  "    console.log('Token saved:', response.data.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"superadmin@municipality.gov\",\n  \"password\": \"SuperAdmin@2025\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/superadmin/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "superadmin", "login"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🏛️ Government Approval Management",
+      "description": "Superadmin endpoints for approving/rejecting government registrations",
+      "item": [
+        {
+          "name": "Get All Government Approvals",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/approvals?type=government&status=pending&page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "approvals"],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "government",
+                  "description": "Filter by applicant type: government, citizen, project"
+                },
+                {
+                  "key": "status",
+                  "value": "pending",
+                  "description": "Filter by status: pending, under_review, approved, rejected"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Government Approval Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/approvals/{{approval_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "approvals", "{{approval_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Approve Government Registration",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"approved\",\n  \"reviewNotes\": \"Government entity meets all requirements and documentation is complete\",\n  \"conditions\": []\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/approvals/{{approval_id}}/decision",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "approvals", "{{approval_id}}", "decision"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reject Government Registration",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"rejected\",\n  \"reviewNotes\": \"Incomplete documentation provided\",\n  \"rejectionReason\": \"Missing required institutional verification documents\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/approvals/{{approval_id}}/decision",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "approvals", "{{approval_id}}", "decision"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Communication to Government Approval",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Please provide additional documentation for verification\",\n  \"messageType\": \"request_info\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/approvals/{{approval_id}}/communicate",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "approvals", "{{approval_id}}", "communicate"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Approval Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/approvals/stats",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "approvals", "stats"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "📋 Project Applications Management",
+      "description": "Manage social project applications and approvals",
+      "item": [
+        {
+          "name": "Get All Project Applications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/projects/applications?status=pending&page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["projects", "applications"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "pending",
+                  "description": "Filter by status: pending, approved, rejected"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Project Application by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/projects/applications/{{application_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["projects", "applications", "{{application_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Approve/Reject Project Application",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"approved\",\n  \"comments\": \"Application approved by superadmin\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/projects/applications/{{application_id}}/decision",
+              "host": ["{{base_url}}"],
+              "path": ["projects", "applications", "{{application_id}}", "decision"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🌐 Ecosystem Management",
+      "description": "Manage citizens, projects, and allocation limits",
+      "item": [
+        {
+          "name": "Get Ecosystem Overview",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ecosystem/overview",
+              "host": ["{{base_url}}"],
+              "path": ["ecosystem", "overview"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Citizens",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ecosystem/citizens",
+              "host": ["{{base_url}}"],
+              "path": ["ecosystem", "citizens"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Manage Citizen Account",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"suspend\",\n  \"reason\": \"Violation of terms and conditions\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ecosystem/citizens/{{citizen_id}}/manage",
+              "host": ["{{base_url}}"],
+              "path": ["ecosystem", "citizens", "{{citizen_id}}", "manage"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ecosystem/projects",
+              "host": ["{{base_url}}"],
+              "path": ["ecosystem", "projects"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Manage Project Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"approve\",\n  \"reason\": \"Project meets all requirements\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ecosystem/projects/{{project_id}}/manage",
+              "host": ["{{base_url}}"],
+              "path": ["ecosystem", "projects", "{{project_id}}", "manage"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Allocation Limits",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ecosystem/limits",
+              "host": ["{{base_url}}"],
+              "path": ["ecosystem", "limits"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Set Allocation Limits",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"citizenLimit\": 5000,\n  \"projectLimit\": 50000,\n  \"dailyIssuanceLimit\": 100000\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ecosystem/limits",
+              "host": ["{{base_url}}"],
+              "path": ["ecosystem", "limits"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "💰 Token Management",
+      "description": "Token statistics and transaction management",
+      "item": [
+        {
+          "name": "Get Token Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tokens",
+              "host": ["{{base_url}}"],
+              "path": ["tokens"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Token Claims",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tokens/claims",
+              "host": ["{{base_url}}"],
+              "path": ["tokens", "claims"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "📊 Analytics & Reporting",
+      "description": "Platform analytics and dashboard data",
+      "item": [
+        {
+          "name": "Get Platform Analytics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/analytics",
+              "host": ["{{base_url}}"],
+              "path": ["analytics"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Dashboard Data",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/dashboard",
+              "host": ["{{base_url}}"],
+              "path": ["dashboard"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

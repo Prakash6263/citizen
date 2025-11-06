@@ -1,0 +1,2253 @@
+{
+  "info": {
+    "name": "Municipality API - Complete Collection",
+    "description": "Comprehensive API documentation for Municipality Social Project Platform with all endpoints organized by logical flow",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "2.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "1. AUTHENTICATION FLOW",
+      "description": "Complete authentication workflow - Register, Verify Email, Login, Reset Password",
+      "item": [
+        {
+          "name": "1.1 - Register Citizen/Social Project User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"username\": \"johndoe\",\n  \"password\": \"SecurePass123!\",\n  \"confirmPassword\": \"SecurePass123!\",\n  \"userType\": \"citizen\",\n  \"country\": \"Argentina\",\n  \"province\": \"Buenos Aires\",\n  \"city\": \"CABA\",\n  \"agreedToTerms\": true,\n  \"agreedToPrivacy\": true\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "1.2 - Register Social Project User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/register/social",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "register", "social"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"NGO Organization Name\",\n  \"email\": \"ngo@example.com\",\n  \"password\": \"SecurePass123!\",\n  \"confirmPassword\": \"SecurePass123!\",\n  \"userType\": \"social_project\",\n  \"country\": \"Argentina\",\n  \"province\": \"Buenos Aires\",\n  \"city\": \"CABA\",\n  \"agreedToTerms\": true,\n  \"agreedToPrivacy\": true\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "1.3 - Verify Email OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/verify-email",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "verify-email"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\",\n  \"otp\": \"123456\"\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "1.4 - Resend Verification OTP (Public - No Auth)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/resend-verification-public",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "resend-verification-public"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\"\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "1.5 - Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"john@example.com\",\n  \"password\": \"SecurePass123!\"\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "1.6 - Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/forgot-password",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "forgot-password"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\"\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "1.7 - Verify Reset Password OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/reset-password/verify",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "reset-password", "verify"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\",\n  \"otp\": \"123456\"\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "1.8 - Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/reset-password",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "reset-password"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resetToken\": \"token_from_verify_response\",\n  \"newPassword\": \"NewSecurePass123!\",\n  \"confirmPassword\": \"NewSecurePass123!\"\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "1.9 - Refresh Access Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "refresh"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "1.10 - Get Current User Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "me"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "1.11 - Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "logout"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "1.12 - Resend Verification (Protected)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/resend-verification",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "resend-verification"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. GOVERNMENT USER REGISTRATION & APPROVAL",
+      "description": "Government 2-step registration and approval flow",
+      "item": [
+        {
+          "name": "2.1 - Government Register Step 1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/government/register/step-1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "government", "register", "step-1"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"governmentName\": \"Municipality of Buenos Aires\",\n  \"entityType\": \"municipality\",\n  \"country\": \"Argentina\",\n  \"province\": \"Buenos Aires\",\n  \"city\": \"CABA\",\n  \"representativeName\": \"Juan Martinez\",\n  \"representativeRole\": \"Mayor\",\n  \"institutionalEmail\": \"mayor@buenosaires.gov.ar\",\n  \"officialWebsite\": \"https://www.buenosaires.gov.ar\",\n  \"comments\": \"Official government institution\"\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2.2 - Government Register Step 2",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/government/register/step-2/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "government", "register", "step-2", ":id"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"officialWebsite\": \"https://www.buenosaires.gov.ar\",\n  \"comments\": \"Completing registration\",\n  \"consentContactBeforeActivation\": true,\n  \"acceptedTermsAndConditions\": \"true\"\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2.3 - Get Government Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/government/profile",
+              "host": ["{{base_url}}"],
+              "path": ["api", "government", "profile"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2.4 - Update Government Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/government/profile",
+              "host": ["{{base_url}}"],
+              "path": ["api", "government", "profile"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"governmentName\": \"Municipality of Buenos Aires Updated\",\n  \"entityType\": \"municipality\",\n  \"country\": \"Argentina\",\n  \"province\": \"Buenos Aires\",\n  \"city\": \"CABA\",\n  \"representativeName\": \"Juan Martinez\",\n  \"representativeRole\": \"Mayor\",\n  \"institutionalEmail\": \"mayor@buenosaires.gov.ar\",\n  \"officialWebsite\": \"https://www.buenosaires.gov.ar\",\n  \"comments\": \"Updated information\"\n}\n"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. SOCIAL PROJECT REGISTRATION & MANAGEMENT",
+      "description": "Social project user registration, project creation, and management",
+      "item": [
+        {
+          "name": "3.1 - Submit Social Project Registration",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/social-projects/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "social-projects", "register"]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "projectOrganizationName",
+                  "value": "Red de Educación Social"
+                },
+                {
+                  "key": "allowedProjectTypes",
+                  "value": "[\"education\",\"community\"]"
+                },
+                {
+                  "key": "city",
+                  "value": "Buenos Aires"
+                },
+                {
+                  "key": "country",
+                  "value": "Argentina"
+                },
+                {
+                  "key": "responsiblePersonFullName",
+                  "value": "Maria Garcia"
+                },
+                {
+                  "key": "personPositionRole",
+                  "value": "Director"
+                },
+                {
+                  "key": "contactNumber",
+                  "value": "+54 11 1234 5678"
+                },
+                {
+                  "key": "emailAddress",
+                  "value": "maria@educacion.org"
+                },
+                {
+                  "key": "registrationNotes",
+                  "value": "NGO focused on social education"
+                },
+                {
+                  "key": "documents",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3.2 - Get My Registration",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/social-projects/my-registration",
+              "host": ["{{base_url}}"],
+              "path": ["api", "social-projects", "my-registration"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3.3 - Create Project (After Approval)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/social-projects/create",
+              "host": ["{{base_url}}"],
+              "path": ["api", "social-projects", "create"]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "projectTitle",
+                  "value": "Educational Access Program"
+                },
+                {
+                  "key": "projectType",
+                  "value": "education"
+                },
+                {
+                  "key": "city",
+                  "value": "Buenos Aires"
+                },
+                {
+                  "key": "country",
+                  "value": "Argentina"
+                },
+                {
+                  "key": "projectDescription",
+                  "value": "Program to provide educational resources to underserved communities"
+                },
+                {
+                  "key": "contactInfo.representativeName",
+                  "value": "Maria Garcia"
+                },
+                {
+                  "key": "contactInfo.email",
+                  "value": "maria@educacion.org"
+                },
+                {
+                  "key": "documentation",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3.4 - Get My Projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/social-projects/my-projects",
+              "host": ["{{base_url}}"],
+              "path": ["api", "social-projects", "my-projects"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3.5 - Update Project",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/social-projects/:projectId/update",
+              "host": ["{{base_url}}"],
+              "path": ["api", "social-projects", ":projectId", "update"]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "projectTitle",
+                  "value": "Educational Access Program - Updated"
+                },
+                {
+                  "key": "projectDescription",
+                  "value": "Updated program description with more details"
+                },
+                {
+                  "key": "documentation",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3.6 - Get All Active Projects (Public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/social-projects/public/active",
+              "host": ["{{base_url}}"],
+              "path": ["api", "social-projects", "public", "active"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3.7 - Get Project Details (Public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/social-projects/public/:projectId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "social-projects", "public", ":projectId"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3.8 - Get Project Funding Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/social-projects/:projectId/funding",
+              "host": ["{{base_url}}"],
+              "path": ["api", "social-projects", ":projectId", "funding"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3.9 - Get All Projects (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/social-projects/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "social-projects", ""]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. PROJECT APPROVALS & DECISIONS (Government)",
+      "description": "Government approval workflows for registrations and projects",
+      "item": [
+        {
+          "name": "4.1 - Get Pending Registrations (Government)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/social-projects/registrations/pending",
+              "host": ["{{base_url}}"],
+              "path": ["api", "social-projects", "registrations", "pending"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4.2 - Get Registration Statistics (Government)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/social-projects/registrations/stats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "social-projects", "registrations", "stats"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4.3 - Process Registration Decision",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/social-projects/registrations/:id/decision",
+              "host": ["{{base_url}}"],
+              "path": ["api", "social-projects", "registrations", ":id", "decision"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"approved\",\n  \"approvalNotes\": \"Organization meets all requirements\"\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4.4 - Get Pending Projects for Approval (Government)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/social-projects/pending-approval",
+              "host": ["{{base_url}}"],
+              "path": ["api", "social-projects", "pending-approval"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4.5 - Approve/Reject Project",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/social-projects/:projectId/approve",
+              "host": ["{{base_url}}"],
+              "path": ["api", "social-projects", ":projectId", "approve"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"approved\",\n  \"approvalNotes\": \"Project meets all criteria\"\n}\n"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. PROJECT UPDATES",
+      "description": "Create, manage, like, and comment on project updates",
+      "item": [
+        {
+          "name": "5.1 - Create Project Update",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/updates/social-projects/:projectId/updates",
+              "host": ["{{base_url}}"],
+              "path": ["api", "updates", "social-projects", ":projectId", "updates"]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "Project Progress Update"
+                },
+                {
+                  "key": "content",
+                  "value": "We have completed the first phase of the project with great success"
+                },
+                {
+                  "key": "media",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5.2 - Get Project Updates",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/updates/social-projects/:projectId/updates",
+              "host": ["{{base_url}}"],
+              "path": ["api", "updates", "social-projects", ":projectId", "updates"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5.3 - Get Specific Update",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/updates/updates/:updateId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "updates", "updates", ":updateId"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5.4 - Update Project Update",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/updates/updates/:updateId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "updates", "updates", ":updateId"]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "Updated Project Progress"
+                },
+                {
+                  "key": "content",
+                  "value": "Updated content with more details"
+                },
+                {
+                  "key": "media",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5.5 - Delete Project Update",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/updates/updates/:updateId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "updates", "updates", ":updateId"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5.6 - Like Project Update",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/updates/updates/:updateId/like",
+              "host": ["{{base_url}}"],
+              "path": ["api", "updates", "updates", ":updateId", "like"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5.7 - Unlike Project Update",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/updates/updates/:updateId/like",
+              "host": ["{{base_url}}"],
+              "path": ["api", "updates", "updates", ":updateId", "like"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5.8 - Add Comment to Update",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/updates/updates/:updateId/comments",
+              "host": ["{{base_url}}"],
+              "path": ["api", "updates", "updates", ":updateId", "comments"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Great progress! Keep up the good work\"\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5.9 - Get Update Comments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/updates/updates/:updateId/comments",
+              "host": ["{{base_url}}"],
+              "path": ["api", "updates", "updates", ":updateId", "comments"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5.10 - Remove Comment from Update",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/updates/updates/:updateId/comments/:commentId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "updates", "updates", ":updateId", "comments", ":commentId"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6. CITIZEN SUPPORT & FUNDING",
+      "description": "Citizens support projects and manage their funding contributions",
+      "item": [
+        {
+          "name": "6.1 - Support Project (Citizen)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/social-projects/:projectId/support",
+              "host": ["{{base_url}}"],
+              "path": ["api", "social-projects", ":projectId", "support"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokenAmount\": 100\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "6.2 - Get My Supported Projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/project-support/my-supported",
+              "host": ["{{base_url}}"],
+              "path": ["api", "project-support", "my-supported"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "6.3 - Get Project Supporters",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/project-support/:projectId/supporters",
+              "host": ["{{base_url}}"],
+              "path": ["api", "project-support", ":projectId", "supporters"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "6.4 - Get Project Support Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/project-support/:projectId/support-stats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "project-support", ":projectId", "support-stats"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "7. TOKENS MANAGEMENT",
+      "description": "Token balance, transfer, and issuance management",
+      "item": [
+        {
+          "name": "7.1 - Get Token Balance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/tokens/balance",
+              "host": ["{{base_url}}"],
+              "path": ["api", "tokens", "balance"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "7.2 - Issue Tokens (Government)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tokens/issue",
+              "host": ["{{base_url}}"],
+              "path": ["api", "tokens", "issue"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipientId\": \"user_id\",\n  \"amount\": 100,\n  \"tokenType\": \"civic\",\n  \"description\": \"Reward for participation\",\n  \"category\": \"reward\"\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "7.3 - Transfer Tokens",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tokens/transfer",
+              "host": ["{{base_url}}"],
+              "path": ["api", "tokens", "transfer"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipientId\": \"recipient_user_id\",\n  \"amount\": 50,\n  \"message\": \"Token transfer for project support\"\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "7.4 - Get Token Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/tokens/stats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "tokens", "stats"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "8. TOKEN CLAIMS (Citizen → Government)",
+      "description": "Citizens submit proof of payment to claim tokens",
+      "item": [
+        {
+          "name": "8.1 - Submit Token Claim",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/token-claims/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-claims", ""]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "paymentType",
+                  "value": "volunteer_hours"
+                },
+                {
+                  "key": "paymentAmount",
+                  "value": "50"
+                },
+                {
+                  "key": "paymentDate",
+                  "value": "2025-11-01"
+                },
+                {
+                  "key": "paymentCurrency",
+                  "value": "ARS"
+                },
+                {
+                  "key": "paymentReference",
+                  "value": "Reference123"
+                },
+                {
+                  "key": "description",
+                  "value": "Volunteer work proof\""
+                },
+                {
+                  "key": "proofDocuments",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "8.2 - Get My Token Claims",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/token-claims/my",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-claims", "my"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "8.3 - Get All Token Claims (Government)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/token-claims/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-claims", ""]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "8.4 - Review Token Claim (Government)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/token-claims/:id/review",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-claims", ":id", "review"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"approve\",\n  \"reviewNotes\": \"Documentation verified\"\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "8.5 - Get Token Claims Statistics (Government)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/token-claims/stats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-claims", "stats"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "9. USER PROFILE & SETTINGS",
+      "description": "User profile management, avatar, settings, and account",
+      "item": [
+        {
+          "name": "9.1 - Get User Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/profile",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "profile"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "9.2 - Update User Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/profile",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "profile"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"John Doe Updated\",\n  \"phoneNumber\": \"+54 11 9876 5432\"\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "9.3 - Get User Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/stats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "stats"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "9.4 - Upload Avatar",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/avatar",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "avatar"]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "avatar",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "9.5 - Delete Avatar",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/avatar",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "avatar"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "9.6 - Get User Settings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/settings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "settings"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "9.7 - Update User Settings",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/settings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "settings"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"settings\": {\n    \"notifications\": {\n      \"email\": true,\n      \"projectUpdates\": true\n    },\n    \"privacy\": {\n      \"profileVisibility\": \"public\",\n      \"showEmail\": false\n    },\n    \"language\": \"es\"\n  }\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "9.8 - Change Password",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/change-password",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "change-password"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"OldPass123!\",\n  \"newPassword\": \"NewPass123!\",\n  \"confirmPassword\": \"NewPass123!\"\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "9.9 - Get User Activity",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/activity",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "activity"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "9.10 - Get User Wallet",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/wallet",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "wallet"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "9.11 - Get Transaction History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/wallet/transactions",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "wallet", "transactions"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "9.12 - Get Wallet Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/wallet/stats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "wallet", "stats"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "9.13 - Deactivate Account",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/deactivate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "deactivate"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Taking a break\"\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "9.14 - Delete Account",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/account",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "account"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "10. PUBLIC PROFILE & SEARCH",
+      "description": "Public profile access, user search, and statistics",
+      "item": [
+        {
+          "name": "10.1 - Search Users (Public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/profile/search?q=john&userType=citizen&page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "profile", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "john"
+                },
+                {
+                  "key": "userType",
+                  "value": "citizen"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "10.2 - Get Public Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/profile/stats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "profile", "stats"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "10.3 - Get Public Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/profile/:username",
+              "host": ["{{base_url}}"],
+              "path": ["api", "profile", ":username"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "11. MEDIA MANAGEMENT",
+      "description": "Upload and delete project and update media",
+      "item": [
+        {
+          "name": "11.1 - Upload Project Documents",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/media/projects/:projectId/documents",
+              "host": ["{{base_url}}"],
+              "path": ["api", "media", "projects", ":projectId", "documents"]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "documents",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "11.2 - Upload Project Images",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/media/projects/:projectId/images",
+              "host": ["{{base_url}}"],
+              "path": ["api", "media", "projects", ":projectId", "images"]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "images",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "11.3 - Delete Project Document",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/media/projects/:projectId/documents/:documentId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "media", "projects", ":projectId", "documents", ":documentId"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "11.4 - Delete Project Image",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/media/projects/:projectId/images/:imageId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "media", "projects", ":projectId", "images", ":imageId"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "11.5 - Upload Update Media",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/media/updates/:updateId/media",
+              "host": ["{{base_url}}"],
+              "path": ["api", "media", "updates", ":updateId", "media"]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "media",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "11.6 - Delete Update Media",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/media/updates/:updateId/media/:mediaId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "media", "updates", ":updateId", "media", ":mediaId"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "11.7 - Get Media Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/media/info/:type/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "media", "info", ":type", ":id"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "11.8 - Update Media Caption",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/media/caption",
+              "host": ["{{base_url}}"],
+              "path": ["api", "media", "caption"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mediaId\": \"media_id\",\n  \"caption\": \"Updated caption for the media\"\n}\n"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "12. COMMENTS",
+      "description": "Create, update, delete comments and get replies",
+      "item": [
+        {
+          "name": "12.1 - Get Comments (Public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/comments/?postId=post_id&page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "comments", ""],
+              "query": [
+                {
+                  "key": "postId",
+                  "value": "post_id"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "12.2 - Get Comment Replies",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/comments/:id/replies",
+              "host": ["{{base_url}}"],
+              "path": ["api", "comments", ":id", "replies"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "12.3 - Create Comment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/comments/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "comments", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"postId\": \"post_id\",\n  \"content\": \"This is a great project!\",\n  \"parentCommentId\": null\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "12.4 - Update Comment",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/comments/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "comments", ":id"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Updated comment content\"\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "12.5 - Delete Comment",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/comments/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "comments", ":id"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "12.6 - Flag Comment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/comments/:id/flag",
+              "host": ["{{base_url}}"],
+              "path": ["api", "comments", ":id", "flag"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"inappropriate\",\n  \"details\": \"Comment contains offensive content\"\n}\n"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "13. GOVERNMENT DASHBOARD & ANALYTICS",
+      "description": "Government dashboard, analytics, and ecosystem management",
+      "item": [
+        {
+          "name": "13.1 - Get Dashboard Overview",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/dashboard/overview",
+              "host": ["{{base_url}}"],
+              "path": ["api", "dashboard", "overview"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "13.2 - Get User Engagement",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/dashboard/engagement",
+              "host": ["{{base_url}}"],
+              "path": ["api", "dashboard", "engagement"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "13.3 - Get Financial Analytics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/dashboard/financial",
+              "host": ["{{base_url}}"],
+              "path": ["api", "dashboard", "financial"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "13.4 - Get System Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/dashboard/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "dashboard", "health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "13.5 - Get Detailed Reports",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/dashboard/reports",
+              "host": ["{{base_url}}"],
+              "path": ["api", "dashboard", "reports"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "14. ECOSYSTEM MANAGEMENT (Government)",
+      "description": "Ecosystem overview, citizen and project management, allocation limits",
+      "item": [
+        {
+          "name": "14.1 - Get Ecosystem Overview",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/ecosystem/overview",
+              "host": ["{{base_url}}"],
+              "path": ["api", "ecosystem", "overview"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "14.2 - Get Ecosystem Citizens",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/ecosystem/citizens",
+              "host": ["{{base_url}}"],
+              "path": ["api", "ecosystem", "citizens"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "14.3 - Get Ecosystem Projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/ecosystem/projects",
+              "host": ["{{base_url}}"],
+              "path": ["api", "ecosystem", "projects"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "14.4 - Manage Citizen Account",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/ecosystem/citizens/:id/manage",
+              "host": ["{{base_url}}"],
+              "path": ["api", "ecosystem", "citizens", ":id", "manage"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"suspend\",\n  \"reason\": \"Suspicious activity\"\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "14.5 - Manage Project Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/ecosystem/projects/:id/manage",
+              "host": ["{{base_url}}"],
+              "path": ["api", "ecosystem", "projects", ":id", "manage"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"complete\",\n  \"reason\": \"Project successfully completed\"\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "14.6 - Get Allocation Limits",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/ecosystem/limits",
+              "host": ["{{base_url}}"],
+              "path": ["api", "ecosystem", "limits"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "14.7 - Update Allocation Limits",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/ecosystem/limits",
+              "host": ["{{base_url}}"],
+              "path": ["api", "ecosystem", "limits"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"citizenLimit\": 1000,\n  \"projectLimit\": 50000,\n  \"dailyIssuanceLimit\": 100000\n}\n"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "15. ALLOCATION LIMITS",
+      "description": "Set, get, and manage allocation limits for projects",
+      "item": [
+        {
+          "name": "15.1 - Set Allocation Limits",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/allocation-limits/set",
+              "host": ["{{base_url}}"],
+              "path": ["api", "allocation-limits", "set"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectRegistrationId\": \"registration_id\",\n  \"projectId\": \"project_id\",\n  \"citizenTokenLimit\": 500,\n  \"projectTokenLimit\": 25000,\n  \"notes\": \"Limits for Q4 2025\"\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "15.2 - Get Allocation Limits By Registration",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/allocation-limits/registration/:projectRegistrationId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "allocation-limits", "registration", ":projectRegistrationId"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "15.3 - Update Allocation Limits",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/allocation-limits/:limitId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "allocation-limits", ":limitId"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"citizenTokenLimit\": 600,\n  \"projectTokenLimit\": 30000,\n  \"status\": \"active\",\n  \"notes\": \"Updated limits\"\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "15.4 - Get Allocation Limits",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/allocation-limits/:projectRegistrationId/:projectId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "allocation-limits", ":projectRegistrationId", ":projectId"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "15.5 - Get Project Funding Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/allocation-limits/:projectRegistrationId/:projectId/funding-status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "allocation-limits", ":projectRegistrationId", ":projectId", "funding-status"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "15.6 - Get Citizen Spending on Project",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/allocation-limits/:projectId/citizen-spending",
+              "host": ["{{base_url}}"],
+              "path": ["api", "allocation-limits", ":projectId", "citizen-spending"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "16. APPROVALS (Government)",
+      "description": "Approval workflows for citizens and projects",
+      "item": [
+        {
+          "name": "16.1 - Get Pending Approvals",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/approvals",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "approvals"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "16.2 - Get Approval Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/approvals/stats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "approvals", "stats"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "16.3 - Get Approval Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/approvals/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "approvals", ":id"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "16.4 - Process Approval Decision",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/approvals/:id/decision",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "approvals", ":id", "decision"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"approved\",\n  \"reviewNotes\": \"User meets all requirements\",\n  \"conditions\": []\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "16.5 - Add Communication to Approval",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/approvals/:id/communicate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "approvals", ":id", "communicate"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Please provide additional documentation\",\n  \"type\": \"request_info\"\n}\n"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "17. CITIZENS MANAGEMENT (Government)",
+      "description": "View and manage citizen accounts",
+      "item": [
+        {
+          "name": "17.1 - Get All Citizens",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/citizens/?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "citizens", ""],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "17.2 - Get Citizen Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/citizens/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "citizens", ":id"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "18. USER ANALYTICS",
+      "description": "Analytics for user activities and engagement",
+      "item": [
+        {
+          "name": "18.1 - Get User Analytics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/analytics/users/:userId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "analytics", "users", ":userId"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "19. SUPERADMIN",
+      "description": "Superadmin authentication",
+      "item": [
+        {
+          "name": "19.1 - Superadmin Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/super/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "super", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"superadmin@platform.com\",\n  \"password\": \"SuperAdminPass123!\"\n}\n"
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
