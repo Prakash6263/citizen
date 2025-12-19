@@ -92,6 +92,18 @@ const submitSocialProjectRegistration = asyncHandler(async (req, res) => {
     status: "pending",
   })
 
+  await User.findByIdAndUpdate(req.user._id, { isRegistrationProjectDone: true })
+
+  if (registration) {
+    const responseData = {
+      ...registration.toObject(),
+      isRegistrationProjectDone: true, // User has completed the registration submission
+      isGovernmentApproveProject: false, // Government approval is still pending
+    }
+
+    successResponse(res, "Social project registration submitted successfully", responseData, 201)
+  }
+
   await RegistrationApproval.create({
     applicationType: "social_project",
     applicantId: registration._id,
@@ -99,8 +111,6 @@ const submitSocialProjectRegistration = asyncHandler(async (req, res) => {
     status: "pending",
     submittedAt: new Date(),
   })
-
-  successResponse(res, "Social project registration submitted successfully", registration, 201)
 })
 
 // @desc    Get user's social project registration
@@ -529,21 +539,20 @@ const getActiveProjectsPublic = asyncHandler(async (req, res) => {
 const getProjectDetailsPublic = asyncHandler(async (req, res) => {
   const { projectId } = req.params
 
-  const registration = await SocialProjectRegistration.findOne({
-    status: "approved",
+  const query = {
     "projects._id": projectId,
-  })
-    .populate("user", "fullName email avatar")
-    .lean()
+  }
+
+  const registration = await SocialProjectRegistration.findOne(query).populate("user", "fullName email avatar").lean()
 
   if (!registration) {
-    return errorResponse(res, "Project not found or is not approved", 404)
+    return errorResponse(res, "Project not found", 404)
   }
 
   const project = registration.projects.find((p) => p._id.toString() === projectId)
 
-  if (!project || project.projectStatus !== "active") {
-    return errorResponse(res, "Project not found or is not approved", 404)
+  if (!project) {
+    return errorResponse(res, "Project not found", 404)
   }
 
   const allocationLimit = await AllocationLimit.findOne({
@@ -560,8 +569,10 @@ const getProjectDetailsPublic = asyncHandler(async (req, res) => {
     city: project.city,
     country: project.country,
     projectDescription: project.projectDescription,
+    startDate: project.startDate,
+    endDate: project.endDate,
     contactInfo: project.contactInfo,
-    documentation: formatDocumentation(project.documentation), // Add full URLs
+    documentation: formatDocumentation(project.documentation),
     status: project.projectStatus,
     publishedAt: project.publishedAt,
     fundingGoal: project.fundingGoal,
@@ -573,14 +584,7 @@ const getProjectDetailsPublic = asyncHandler(async (req, res) => {
     isFullyFunded: project.tokensFunded >= project.fundingGoal,
     organizationName: registration.projectOrganizationName,
     organizationCity: registration.city,
-    organizationCountry: registration.country,
     organizationState: registration.state,
-    organizationContact: {
-      name: registration.responsiblePersonFullName,
-      email: registration.emailAddress,
-      phone: registration.contactNumber,
-      position: registration.personPositionRole,
-    },
     createdBy: registration.user
       ? {
           _id: registration.user._id,
@@ -601,22 +605,18 @@ const supportProjectWithTokens = asyncHandler(async (req, res) => {
   const { projectId } = req.params
   const { tokensToSpend } = req.body
 
-  // Only citizens can support projects
   if (req.user.userType !== "citizen") {
     return errorResponse(res, "Only citizen users can support projects", 403)
   }
 
-  // Validate token amount
   if (!tokensToSpend || tokensToSpend <= 0) {
     return errorResponse(res, "Tokens to spend must be greater than 0", 400)
   }
 
-  // Check if user has enough tokens
   if (req.user.tokenBalance < tokensToSpend) {
     return errorResponse(res, `Insufficient tokens. You have ${req.user.tokenBalance} tokens available`, 400)
   }
 
-  // Find the registration containing this project
   const registration = await SocialProjectRegistration.findOne({
     status: "approved",
     "projects._id": projectId,
@@ -626,7 +626,6 @@ const supportProjectWithTokens = asyncHandler(async (req, res) => {
     return errorResponse(res, "Project not found or is not active", 404)
   }
 
-  // Find the specific project
   const projectIndex = registration.projects.findIndex((p) => p._id.toString() === projectId)
 
   if (projectIndex === -1 || registration.projects[projectIndex].projectStatus !== "active") {
@@ -665,7 +664,6 @@ const supportProjectWithTokens = asyncHandler(async (req, res) => {
       )
     }
   } else {
-    // Check if new support would exceed citizen limit
     if (tokensToSpend > allocationLimit.citizenTokenLimit) {
       return errorResponse(
         res,
@@ -684,10 +682,8 @@ const supportProjectWithTokens = asyncHandler(async (req, res) => {
     )
   }
 
-  // Generate support ID
   const supportId = generateUniqueId("SUP")
 
-  // Create ProjectSupport record
   const supportRecord = await ProjectSupport.create({
     supportId,
     citizen: req.user._id,
@@ -697,10 +693,8 @@ const supportProjectWithTokens = asyncHandler(async (req, res) => {
     supportedAt: new Date(),
   })
 
-  // Deduct tokens from user
   req.user.tokenBalance -= tokensToSpend
 
-  // Add user to supported list or update existing support
   if (existingSupport) {
     existingSupport.tokensSpent += tokensToSpend
   } else {
@@ -711,17 +705,14 @@ const supportProjectWithTokens = asyncHandler(async (req, res) => {
     })
   }
 
-  // Update project funding
   project.tokensFunded += tokensToSpend
 
-  // Add to user's supported projects
   req.user.tokenSupportedProjects.push({
     project: projectId,
     tokensSpent: tokensToSpend,
     supportedAt: new Date(),
   })
 
-  // Create token transaction record
   const transactionId = `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 
   await TokenTransaction.create({
@@ -742,10 +733,8 @@ const supportProjectWithTokens = asyncHandler(async (req, res) => {
     $inc: { tokenBalance: tokensToSpend },
   })
 
-  // Save both user and registration
   await Promise.all([req.user.save(), registration.save()])
 
-  // Prepare response with funding progress
   const response = {
     success: true,
     message: `Successfully supported ${project.projectTitle} with ${tokensToSpend} tokens`,
@@ -776,7 +765,6 @@ const supportProjectWithTokens = asyncHandler(async (req, res) => {
 const getProjectFundingDetails = asyncHandler(async (req, res) => {
   const { projectId } = req.params
 
-  // Find the registration containing this project
   const registration = await SocialProjectRegistration.findOne({
     status: "approved",
     "projects._id": projectId,
@@ -788,7 +776,6 @@ const getProjectFundingDetails = asyncHandler(async (req, res) => {
     return errorResponse(res, "Project not found", 404)
   }
 
-  // Find the specific project
   const project = registration.projects.find((p) => p._id.toString() === projectId)
 
   if (!project || project.status !== "active") {
@@ -800,7 +787,6 @@ const getProjectFundingDetails = asyncHandler(async (req, res) => {
     status: "active",
   })
 
-  // Format response
   const fundingDetails = {
     projectId: project._id,
     projectTitle: project.projectTitle,
@@ -923,7 +909,6 @@ const getPendingProjectsApproval = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10 } = req.query
   const skip = (page - 1) * limit
 
-  // Find registrations with pending projects
   const [registrations, total] = await Promise.all([
     SocialProjectRegistration.find({
       status: "approved",
@@ -937,7 +922,6 @@ const getPendingProjectsApproval = asyncHandler(async (req, res) => {
     }),
   ])
 
-  // Flatten pending projects
   const projects = registrations.flatMap((registration) =>
     registration.projects
       .filter((project) => project.projectStatus === "pending_approval")
@@ -949,7 +933,7 @@ const getPendingProjectsApproval = asyncHandler(async (req, res) => {
         city: project.city,
         country: project.country,
         projectDescription: project.projectDescription,
-        documentation: formatDocumentation(project.documentation), // Add full URLs
+        documentation: formatDocumentation(project.documentation),
         organizationName: registration.projectOrganizationName,
         organizationCity: registration.city,
         organizationState: registration.state,
@@ -1001,7 +985,6 @@ const approveProjectDecision = asyncHandler(async (req, res) => {
     }
   }
 
-  // Find the registration containing this project
   const registration = await SocialProjectRegistration.findOne({
     status: "approved",
     "projects._id": projectId,
@@ -1011,7 +994,6 @@ const approveProjectDecision = asyncHandler(async (req, res) => {
     return errorResponse(res, "Project not found", 404)
   }
 
-  // Find the specific project
   const projectIndex = registration.projects.findIndex((p) => p._id.toString() === projectId)
 
   if (projectIndex === -1) {
@@ -1024,7 +1006,6 @@ const approveProjectDecision = asyncHandler(async (req, res) => {
     return errorResponse(res, "Project has already been processed", 400)
   }
 
-  // Update project status
   project.projectStatus = decision
   project.approvedBy = req.user._id
   project.approvedAt = new Date()
@@ -1034,7 +1015,7 @@ const approveProjectDecision = asyncHandler(async (req, res) => {
   } else if (decision === "active") {
     project.fundingGoal = fundingGoal
     project.allocationSet = true
-    project.tokensFunded = 0 // Reset funded amount on approval
+    project.tokensFunded = 0
   }
 
   await registration.save()
@@ -1048,7 +1029,6 @@ const approveProjectDecision = asyncHandler(async (req, res) => {
     })
 
     if (existingAllocation) {
-      // Update existing allocation
       existingAllocation.projectTokenLimit = fundingGoal
       existingAllocation.citizenTokenLimit = citizenTokenLimit
       existingAllocation.setBy = req.user._id
@@ -1056,7 +1036,6 @@ const approveProjectDecision = asyncHandler(async (req, res) => {
       existingAllocation.status = "active"
       await existingAllocation.save()
     } else {
-      // Create new allocation
       await AllocationLimit.create({
         projectRegistration: registration._id,
         project: projectId,

@@ -7,7 +7,6 @@ const allocationLimitSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "SocialProjectRegistration",
       required: true,
-      unique: true,
     },
 
     // Reference to the specific project within the registration
@@ -73,7 +72,7 @@ const allocationLimitSchema = new mongoose.Schema(
 )
 
 // Indexes for efficient querying
-allocationLimitSchema.index({ projectRegistration: 1 })
+allocationLimitSchema.index({ projectRegistration: 1, project: 1 }, { unique: true })
 allocationLimitSchema.index({ project: 1 })
 allocationLimitSchema.index({ setBy: 1 })
 allocationLimitSchema.index({ status: 1 })

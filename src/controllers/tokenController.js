@@ -70,7 +70,7 @@ const issueToken = asyncHandler(async (req, res) => {
     status: "completed",
     processedAt: new Date(),
   })
-
+ 
   // Update recipient's token balance
   recipient.tokenBalance += amount
   await recipient.save()

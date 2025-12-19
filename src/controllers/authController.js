@@ -30,7 +30,7 @@ const register = asyncHandler(async (req, res) => {
 
   if (existingUser) {
     if (existingUser.email === email.toLowerCase()) {
-      return ResponseHelper.error(res, "User with this email already exists", 400)
+      return ResponseHelper.error(res, "User with this email already exists", 200)
     }
     if (existingUser.username === username.toLowerCase()) {
       return ResponseHelper.error(res, "Username is already taken", 400)
@@ -295,20 +295,19 @@ const login = asyncHandler(async (req, res) => {
   }
 
   if (user.userType === "social_project") {
-    const SocialProjectRegistration = require("../models/SocialProjectRegistration")
     const RegistrationApproval = require("../models/RegistrationApproval")
+    const SocialProjectRegistration = require("../models/SocialProjectRegistration")
 
+    responseData.isRegistrationProjectDone = user.isRegistrationProjectDone || false
+
+    // Check government approval status
     const projectRegistration = await SocialProjectRegistration.findOne({ user: user._id })
-
     const governmentApproval = projectRegistration
       ? await RegistrationApproval.findOne({
           applicationType: "social_project",
           applicantId: projectRegistration._id,
         })
       : null
-
-    responseData.isRegistrationProjectDone =
-      projectRegistration && projectRegistration.status === "approved" ? true : false
 
     responseData.isGovernmentApproveProject = governmentApproval ? governmentApproval.status === "approved" : false
   }
@@ -778,7 +777,7 @@ const registerSocial = asyncHandler(async (req, res) => {
   // Check if email already exists
   const existingByEmail = await User.findOne({ email: email.toLowerCase() })
   if (existingByEmail) {
-    return ResponseHelper.error(res, "User with this email already exists", 400)
+    return ResponseHelper.error(res, "User with this email already exists", 200)
   }
 
   // Generate a unique username from fullName or email local-part

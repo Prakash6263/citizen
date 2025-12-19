@@ -204,6 +204,11 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
+    isRegistrationProjectDone: {
+      type: Boolean,
+      default: false,
+    },
+
     // Account creation tracking
     registrationIP: String,
     lastLoginIP: String,
@@ -222,6 +227,7 @@ userSchema.index({ userType: 1 })
 userSchema.index({ isActive: 1 })
 userSchema.index({ isSuperAdminVerified: 1 })
 userSchema.index({ isGovernmentApproved: 1 })
+userSchema.index({ isRegistrationProjectDone: 1 }) // Index new field
 userSchema.index({ createdAt: -1 })
 
 // Virtual for user's full profile URL

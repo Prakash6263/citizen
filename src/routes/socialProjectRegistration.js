@@ -19,7 +19,7 @@ const {
   approveProjectDecision,
 } = require("../controllers/socialProjectRegistrationController")
 
-const { protect, authorize } = require("../middleware/auth")
+const { protect, authorize, protectOptional } = require("../middleware/auth")
 const {
   socialProjectRegistrationValidation,
   socialProjectApprovalValidation,
@@ -59,7 +59,7 @@ const upload = multer({
 router.get("/public/active", getActiveProjectsPublic)
 
 // Get single project details
-router.get("/public/:projectId", getProjectDetailsPublic)
+router.get("/public/:projectId", protectOptional, getProjectDetailsPublic)
 
 // Get project funding details (public access)
 router.get("/:projectId/funding", getProjectFundingDetails)

@@ -7,13 +7,13 @@ const getBaseUrl = () => {
 
   // For production/live environment
   if (process.env.NODE_ENV === "production") {
-    const url = process.env.LIVE_API_URL || "http://82.29.178.117"
+    const url = process.env.LIVE_API_URL
     console.log("[v0] Using LIVE_API_URL:", url)
     return url
   }
 
   // For development/local environment
-  const url = process.env.LOCAL_API_URL || "http://localhost:5000"
+  const url = process.env.LOCAL_API_URL
   console.log("[v0] Using LOCAL_API_URL:", url)
   return url
 }
