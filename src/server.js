@@ -132,7 +132,7 @@ if (process.env.NODE_ENV === "development") {
 app.get("/health", (req, res) => {
   res.status(200).json({
     status: "success",
-    message: "Municipality Backend API is running",
+    message: "Municipality Backend API is running by ci/cd",
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
   })
