@@ -40,7 +40,9 @@ const app = express()
 app.use(helmet())
 app.use(compression())
 
-const uploadsPath = path.resolve(process.cwd(), "uploads")
+// const uploadsPath = path.resolve(process.cwd(), "uploads")
+const uploadsPath = path.join(__dirname, "../uploads");
+
 
 if (!fs.existsSync(uploadsPath)) {
   fs.mkdirSync(uploadsPath, { recursive: true })
@@ -55,7 +57,9 @@ app.use("/uploads", (req, res, next) => {
   res.header("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
   res.header("Access-Control-Allow-Headers", "Content-Type")
   res.header("Cache-Control", "public, max-age=31536000, immutable")
-  const filePath = path.join(process.cwd(), "uploads", req.path)
+  // const filePath = path.join(process.cwd(), "uploads", req.path)
+  const filePath = path.join(uploadsPath, req.path);
+
   console.log("[v0] Static file request:", { path: req.path, filePath, exists: fs.existsSync(filePath) })
   next()
 })
