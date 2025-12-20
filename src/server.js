@@ -101,7 +101,8 @@ const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:5000",
   "http://82.29.178.117", // Live domain
-  "https://citizenssss.duckdns.org"
+  "https://citizenssss.duckdns.org",
+  "https://citizen.aitechnotech.in"
 ]
 
 app.use(
