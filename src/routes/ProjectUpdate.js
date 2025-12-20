@@ -75,6 +75,8 @@ router.post("/updates/:updateId/comments", protect, projectUpdateController.addC
 
 router.delete("/updates/:updateId/comments/:commentId", protect, projectUpdateController.removeCommentFromProjectUpdate)
 
+router.get("/updates/random/all", projectUpdateController.getAllProjectUpdatesRandomly)
+
 router.get("/updates/:updateId/comments", projectUpdateController.getProjectUpdateComments)
 
 module.exports = router

@@ -430,6 +430,79 @@ exports.removeCommentFromProjectUpdate = async (req, res) => {
   }
 }
 
+// Get all project updates randomly
+exports.getAllProjectUpdatesRandomly = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query
+
+    const skip = (page - 1) * limit
+
+    // Use MongoDB aggregation to randomize the results
+    const updates = await ProjectUpdate.aggregate([
+      { $sample: { size: Number.parseInt(limit) * 2 } }, // Sample more to ensure enough results after filtering
+      {
+        $lookup: {
+          from: "users",
+          localField: "createdBy",
+          foreignField: "_id",
+          as: "createdBy",
+        },
+      },
+      { $unwind: "$createdBy" },
+      {
+        $project: {
+          registrationId: 1,
+          projectId: 1,
+          title: 1,
+          description: 1,
+          media: 1,
+          likes: 1,
+          comments: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          "createdBy._id": 1,
+          "createdBy.fullName": 1,
+          "createdBy.avatar": 1,
+          "createdBy.userType": 1,
+          likesCount: { $size: "$likes" },
+          commentsCount: { $size: "$comments" },
+        },
+      },
+      { $skip: skip },
+      { $limit: Number.parseInt(limit) },
+    ])
+
+    // Format media URLs for each update
+    const updatesWithFormattedMedia = updates.map((update) => {
+      if (update.media) {
+        update.media = formatMedia([update.media])
+      }
+      return update
+    })
+
+    const total = await ProjectUpdate.countDocuments()
+
+    res.status(200).json({
+      success: true,
+      data: updatesWithFormattedMedia,
+      pagination: {
+        total,
+        page: Number.parseInt(page),
+        limit: Number.parseInt(limit),
+        pages: Math.ceil(total / limit),
+      },
+      message: "Random project updates retrieved successfully",
+    })
+  } catch (error) {
+    console.error("[v0] Error fetching random project updates:", error)
+    res.status(500).json({
+      success: false,
+      error: error.message || "Failed to fetch random project updates",
+    })
+  }
+}
+
+// Get all comments for a specific project update
 exports.getProjectUpdateComments = async (req, res) => {
   try {
     const { updateId } = req.params
