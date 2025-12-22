@@ -300,16 +300,10 @@ const login = asyncHandler(async (req, res) => {
 
     responseData.isRegistrationProjectDone = user.isRegistrationProjectDone || false
 
-    // Check government approval status
     const projectRegistration = await SocialProjectRegistration.findOne({ user: user._id })
-    const governmentApproval = projectRegistration
-      ? await RegistrationApproval.findOne({
-          applicationType: "social_project",
-          applicantId: projectRegistration._id,
-        })
-      : null
 
-    responseData.isGovernmentApproveProject = governmentApproval ? governmentApproval.status === "approved" : false
+    // If registration exists and is approved, then government approval is considered done
+    responseData.isGovernmentApproveProject = projectRegistration ? projectRegistration.status === "approved" : false
   }
 
   ResponseHelper.success(res, responseData, "Login successful")
