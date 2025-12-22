@@ -89,27 +89,35 @@ const submitSocialProjectRegistration = asyncHandler(async (req, res) => {
     emailAddress,
     documents,
     registrationNotes,
-    status: "pending",
+    status: "approved", // Automatically approved
+    approvedBy: req.user._id, // Self-approved
+    approvedAt: new Date(),
   })
 
-  await User.findByIdAndUpdate(req.user._id, { isRegistrationProjectDone: true })
+  await User.findByIdAndUpdate(req.user._id, {
+    isRegistrationProjectDone: true,
+    isGovernmentApproveProject: true, // Set to true for social projects since no government approval needed
+  })
 
   if (registration) {
     const responseData = {
       ...registration.toObject(),
-      isRegistrationProjectDone: true, // User has completed the registration submission
-      isGovernmentApproveProject: false, // Government approval is still pending
+      isRegistrationProjectDone: true,
+      isGovernmentApproveProject: true, // Social projects don't need government approval
     }
 
-    successResponse(res, "Social project registration submitted successfully", responseData, 201)
+    successResponse(res, "Social project registration submitted and approved successfully", responseData, 201)
   }
 
   await RegistrationApproval.create({
     applicationType: "social_project",
     applicantId: registration._id,
-    applicantModel: "SocialProjectRegistration", // Added applicantModel field to specify which model applicantId references
-    status: "pending",
+    applicantModel: "SocialProjectRegistration",
+    status: "approved", // Automatically approved
     submittedAt: new Date(),
+    reviewedAt: new Date(),
+    reviewedBy: req.user._id,
+    approvalDecision: "approved",
   })
 })
 
@@ -249,7 +257,7 @@ const processSocialProjectDecision = asyncHandler(async (req, res) => {
   successResponse(res, `Social project registration ${decision} successfully`, { registration })
 })
 
-// @desc    Create a new project (only for approved registrations)
+// @desc    Create a new project (only after registration approval)
 // @route   POST /api/social-projects/create
 // @access  Private (Social Project users with approved registration only)
 const createProject = asyncHandler(async (req, res) => {
@@ -268,57 +276,28 @@ const createProject = asyncHandler(async (req, res) => {
   })
 
   if (!registration) {
-    return errorResponse(res, "You must have an approved registration to create a project. Please register first.", 403)
+    return errorResponse(res, "You must have an approved registration to create projects", 403)
   }
 
-  let { projectTitle, projectType, state, city, country, projectDescription, startDate, endDate } = req.body
-
-  // If state is not in body (form-data case), try to get it from the parsed body properties
-  if (!state && req.body.state === undefined) {
-    state = registration.state // Use registration state as fallback
-  }
-
-  console.log("[v0] Create project - extracted state:", state, "from body:", req.body.state)
-
-  if (!state) {
-    return errorResponse(res, "State is required", 400)
-  }
-
-  const existingProject = registration.projects.find((p) => p.projectTitle.toLowerCase() === projectTitle.toLowerCase())
-
-  if (existingProject) {
-    return errorResponse(
-      res,
-      `You already have a project named "${projectTitle}". Please use a different project name.`,
-      400,
-    )
-  }
-
-  const contactInfo = {
-    representativeName: req.body["contactInfo.representativeName"],
-    email: req.body["contactInfo.email"],
-  }
-
-  if (!contactInfo.representativeName || !contactInfo.email) {
-    return errorResponse(res, "Contact information (representative name and email) is required", 400)
-  }
-
-  if (!startDate || !endDate) {
-    return errorResponse(res, "Project start date and end date are required", 400)
-  }
-
-  const startDateObj = new Date(startDate)
-  const endDateObj = new Date(endDate)
-
-  if (startDateObj >= endDateObj) {
-    return errorResponse(res, "End date must be after start date", 400)
-  }
+  const {
+    projectTitle,
+    projectType,
+    state,
+    city,
+    country,
+    projectDescription,
+    startDate,
+    endDate,
+    representativeName,
+    email,
+    fundingGoal, // Accept funding goal from frontend
+  } = req.body
 
   if (!registration.allowedProjectTypes.includes(projectType)) {
     return errorResponse(
       res,
-      `Project type '${projectType}' is not allowed for your registration. Allowed types: ${registration.allowedProjectTypes.join(", ")}`,
-      400,
+      `You are not authorized to create projects of type "${projectType}". Allowed types: ${registration.allowedProjectTypes.join(", ")}`,
+      403,
     )
   }
 
@@ -327,17 +306,16 @@ const createProject = asyncHandler(async (req, res) => {
     for (const file of req.files) {
       try {
         const result = await localStorageService.uploadFile(file.buffer, {
-          folder: `municipality/projects/${registration._id}/documents`,
+          folder: `municipality/projects/${Date.now()}/documents`,
           originalName: file.originalname,
           mimetype: file.mimetype,
           public_id: `proj_doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}${path.extname(file.originalname)}`,
         })
 
         const fileUrl = result.secure_url || result.url
-        console.log("[v0] Project documentation uploaded:", {
+        console.log("[v0] Project document uploaded:", {
           originalName: file.originalname,
           fileUrl,
-          fullPath: result.secure_url,
         })
 
         documentation.push({
@@ -347,8 +325,8 @@ const createProject = asyncHandler(async (req, res) => {
           uploadedAt: new Date(),
         })
       } catch (error) {
-        console.error("[v0] File upload error:", error)
-        return errorResponse(res, "Failed to upload documentation", 500)
+        console.error("[v0] Project file upload error:", error)
+        return errorResponse(res, "Failed to upload project document", 500)
       }
     }
   }
@@ -356,29 +334,50 @@ const createProject = asyncHandler(async (req, res) => {
   const newProject = {
     projectTitle,
     projectType,
-    state: state || registration.state,
-    city: city || registration.city,
-    country: country || registration.country,
+    state,
+    city,
+    country,
     projectDescription,
-    startDate: startDateObj,
-    endDate: endDateObj,
-    contactInfo,
+    startDate,
+    endDate,
+    contactInfo: {
+      representativeName,
+      email,
+    },
     documentation,
-    projectStatus: "pending_approval",
-    tokensFunded: 0,
-    supportedBy: [],
+    projectStatus: "active", // Set to active immediately for social projects
     publishedAt: new Date(),
-  }
-
-  if (!registration.state) {
-    registration.state = state || registration.city || "Not Specified"
+    approvedBy: req.user._id, // Self-approved
+    approvedAt: new Date(),
+    fundingGoal: fundingGoal || 0, // Set funding goal if provided
+    allocationSet: fundingGoal ? true : false, // Mark allocation as set if funding goal provided
+    tokensFunded: 0,
   }
 
   registration.projects.push(newProject)
-
   await registration.save()
 
-  successResponse(res, "Project created successfully and awaiting government approval", newProject, 201)
+  const createdProject = registration.projects[registration.projects.length - 1]
+
+  if (fundingGoal && fundingGoal > 0) {
+    const citizenTokenLimit = Math.floor(fundingGoal * 0.1) // Default: 10% of funding goal per citizen
+
+    await AllocationLimit.create({
+      projectRegistration: registration._id,
+      project: createdProject._id,
+      citizenTokenLimit: citizenTokenLimit,
+      projectTokenLimit: fundingGoal,
+      setBy: req.user._id,
+      setAt: new Date(),
+      status: "active",
+      notes: `Auto-created for social project - no government approval needed`,
+    })
+  }
+
+  successResponse(res, "Project created and published successfully", {
+    project: createdProject,
+    registration,
+  })
 })
 
 // @desc    Get all projects created by the current user
@@ -490,31 +489,13 @@ const getActiveProjectsPublic = asyncHandler(async (req, res) => {
         projectDescription: project.projectDescription,
         contactInfo: project.contactInfo,
         documentation: formatDocumentation(project.documentation),
-        status: project.projectStatus,
-        publishedAt: project.publishedAt,
-        fundingGoal: project.fundingGoal,
-        tokensFunded: project.tokensFunded,
-        fundingProgress: project.fundingGoal > 0 ? Math.round((project.tokensFunded / project.fundingGoal) * 100) : 0,
-        remainingFundingNeeded: Math.max(0, project.fundingGoal - project.tokensFunded),
-        isFullyFunded: project.tokensFunded >= project.fundingGoal,
         organizationName: registration.projectOrganizationName,
         organizationCity: registration.city,
-        organizationCountry: registration.country,
         organizationState: registration.state,
-        organizationContact: {
-          name: registration.responsiblePersonFullName,
-          email: registration.emailAddress,
-          phone: registration.contactNumber,
-          position: registration.personPositionRole,
-        },
-        createdBy: registration.user
-          ? {
-              _id: registration.user._id,
-              fullName: registration.user.fullName,
-              email: registration.user.email,
-              avatar: registration.user.avatar,
-            }
-          : null,
+        createdBy: registration.user,
+        registrationId: registration._id,
+        projectStatus: project.projectStatus,
+        createdAt: project.publishedAt,
       })),
   )
 
@@ -522,7 +503,6 @@ const getActiveProjectsPublic = asyncHandler(async (req, res) => {
     currentPage: Number.parseInt(page),
     totalPages: Math.ceil(total / limit),
     totalProjects: projects.length,
-    totalRegistrations: total,
     hasNext: page < Math.ceil(total / limit),
     hasPrev: page > 1,
   }
@@ -867,7 +847,6 @@ const updateProject = asyncHandler(async (req, res) => {
         console.log("[v0] Project update documentation uploaded:", {
           originalName: file.originalname,
           fileUrl,
-          fullPath: result.secure_url,
         })
 
         newDocumentation.push({
@@ -877,7 +856,7 @@ const updateProject = asyncHandler(async (req, res) => {
           uploadedAt: new Date(),
         })
       } catch (error) {
-        console.error("[v0] File upload error during update:", error)
+        console.error("[v0] Project file upload error during update:", error)
         return errorResponse(res, "Failed to upload documentation", 500)
       }
     }
