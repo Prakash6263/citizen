@@ -437,36 +437,41 @@ exports.getAllProjectUpdatesRandomly = async (req, res) => {
     const userId = req.user?.id
     const userType = req.user?.userType
 
+    console.log("[v0] getAllProjectUpdatesRandomly - userId:", userId, "userType:", userType)
+
     const skip = (page - 1) * limit
 
     let projectFilter = {}
-    if (userType === "social_project" && userId) {
-      const userRegistration = await SocialProjectRegistration.findOne({ user: userId })
 
-      if (userRegistration && userRegistration.projects.length > 0) {
-        // Get all project IDs for this social user
-        const userProjectIds = userRegistration.projects.map((project) => project._id)
-        projectFilter = { projectId: { $in: userProjectIds } }
-      } else {
-        // Social user has no projects yet, return empty array
-        return res.status(200).json({
-          success: true,
-          data: [],
-          pagination: {
-            total: 0,
-            page: Number.parseInt(page),
-            limit: Number.parseInt(limit),
-            pages: 0,
-          },
-          message: "No project updates found",
+    if (userType === "social_project" && userId) {
+      projectFilter = { createdBy: new mongoose.Types.ObjectId(userId) }
+      console.log("[v0] Social user filter - showing only updates created by user:", userId)
+    } else if (userType === "citizen" || userType === "government") {
+      // Get all social project IDs to exclude them
+      const allSocialRegistrations = await SocialProjectRegistration.find({})
+      const allSocialProjectIds = []
+
+      allSocialRegistrations.forEach((registration) => {
+        registration.projects.forEach((project) => {
+          allSocialProjectIds.push(project._id)
         })
+      })
+
+      console.log("[v0] Excluding social project IDs for citizen/government:", allSocialProjectIds.length)
+
+      if (allSocialProjectIds.length > 0) {
+        projectFilter = { projectId: { $nin: allSocialProjectIds } }
       }
     }
 
-    // Use MongoDB aggregation to randomize the results
+    console.log("[v0] Project filter:", JSON.stringify(projectFilter))
+
+    const total = await ProjectUpdate.countDocuments(projectFilter)
+    console.log("[v0] Total updates matching filter:", total)
+
     const updates = await ProjectUpdate.aggregate([
       { $match: projectFilter },
-      { $sample: { size: Number.parseInt(limit) * 2 } }, // Sample more to ensure enough results after filtering
+      { $sort: { _id: 1 } }, // Add consistent sorting for reproducible results
       {
         $lookup: {
           from: "users",
@@ -495,19 +500,22 @@ exports.getAllProjectUpdatesRandomly = async (req, res) => {
           commentsCount: { $size: "$comments" },
         },
       },
-      { $skip: skip },
-      { $limit: Number.parseInt(limit) },
     ])
 
+    console.log("[v0] Updates found before pagination:", updates.length)
+
+    const shuffled = updates.sort(() => Math.random() - 0.5)
+    const paginatedUpdates = shuffled.slice(skip, skip + Number.parseInt(limit))
+
+    console.log("[v0] Updates after pagination:", paginatedUpdates.length)
+
     // Format media URLs for each update
-    const updatesWithFormattedMedia = updates.map((update) => {
+    const updatesWithFormattedMedia = paginatedUpdates.map((update) => {
       if (update.media) {
         update.media = formatMedia([update.media])
       }
       return update
     })
-
-    const total = await ProjectUpdate.countDocuments(projectFilter)
 
     res.status(200).json({
       success: true,
