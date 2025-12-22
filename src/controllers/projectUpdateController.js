@@ -434,11 +434,38 @@ exports.removeCommentFromProjectUpdate = async (req, res) => {
 exports.getAllProjectUpdatesRandomly = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query
+    const userId = req.user?.id
+    const userType = req.user?.userType
 
     const skip = (page - 1) * limit
 
+    let projectFilter = {}
+    if (userType === "social_project" && userId) {
+      const userRegistration = await SocialProjectRegistration.findOne({ user: userId })
+
+      if (userRegistration && userRegistration.projects.length > 0) {
+        // Get all project IDs for this social user
+        const userProjectIds = userRegistration.projects.map((project) => project._id)
+        projectFilter = { projectId: { $in: userProjectIds } }
+      } else {
+        // Social user has no projects yet, return empty array
+        return res.status(200).json({
+          success: true,
+          data: [],
+          pagination: {
+            total: 0,
+            page: Number.parseInt(page),
+            limit: Number.parseInt(limit),
+            pages: 0,
+          },
+          message: "No project updates found",
+        })
+      }
+    }
+
     // Use MongoDB aggregation to randomize the results
     const updates = await ProjectUpdate.aggregate([
+      { $match: projectFilter },
       { $sample: { size: Number.parseInt(limit) * 2 } }, // Sample more to ensure enough results after filtering
       {
         $lookup: {
@@ -480,7 +507,7 @@ exports.getAllProjectUpdatesRandomly = async (req, res) => {
       return update
     })
 
-    const total = await ProjectUpdate.countDocuments()
+    const total = await ProjectUpdate.countDocuments(projectFilter)
 
     res.status(200).json({
       success: true,
