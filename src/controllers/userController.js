@@ -18,7 +18,12 @@ const getProfile = asyncHandler(async (req, res) => {
     return ResponseHelper.error(res, "User not found", 404)
   }
 
-  ResponseHelper.success(res, { user }, "Profile retrieved successfully")
+  const profileData = {
+    user,
+    walletBalance: user.tokenBalance || 0,
+  }
+
+  ResponseHelper.success(res, profileData, "Profile retrieved successfully")
 })
 
 /**
