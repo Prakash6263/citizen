@@ -94,7 +94,7 @@ const register = asyncHandler(async (req, res) => {
       isSuperAdminVerified: true,
     })
 
-    const approvalStatus = "pending" // Always pending until government manually approves
+    const approvalStatus = government ? "approved" : "pending"
 
     const approval = await RegistrationApproval.create({
       applicationType: "citizen",
@@ -105,8 +105,19 @@ const register = asyncHandler(async (req, res) => {
       country: country,
       province: province,
       city: city,
-      // Do NOT set reviewedBy, reviewedAt, or approvalDecision - only government can set these
+      ...(government && {
+        reviewedBy: government.userId,
+        reviewedAt: new Date(),
+        approvalDecision: "approved",
+      }),
     })
+
+    // Auto-approve citizen if government exists
+    if (government) {
+      await User.findByIdAndUpdate(user._id, {
+        isGovernmentApproved: true,
+      })
+    }
   }
 
   // Remove password from response
@@ -183,17 +194,7 @@ const login = asyncHandler(async (req, res) => {
     return ResponseHelper.error(res, "Account is deactivated. Please contact support.", 401)
   }
 
-  console.log("[v0] Login attempt - User details:", {
-    userId: user._id,
-    email: user.email,
-    userType: user.userType,
-    isGovernmentApproved: user.isGovernmentApproved,
-    emailVerified: user.emailVerified,
-  })
-
-  // Check email verification FIRST
-  if (!user.emailVerified) {
-    console.log("[v0] Email not verified:", user._id, user.email)
+  if (!user.isEmailVerified) {
     await LoginAttempt.logAttempt({
       identifier,
       ip,
@@ -210,12 +211,8 @@ const login = asyncHandler(async (req, res) => {
     )
   }
 
-  if ((user.userType === "citizen" || user.userType === "social_project") && !user.isGovernmentApproved) {
-    console.log("[v0] Login blocked - government approval pending:", {
-      userId: user._id,
-      userType: user.userType,
-      isGovernmentApproved: user.isGovernmentApproved,
-    })
+  if (user.userType === "citizen" && !user.isGovernmentApproved) {
+    console.log("[v0] Citizen login blocked - government approval pending:", user._id, user.email)
     await LoginAttempt.logAttempt({
       identifier,
       ip,
@@ -224,13 +221,28 @@ const login = asyncHandler(async (req, res) => {
       failureReason: "government_not_approved",
       user: user._id,
     })
+    return ResponseHelper.error(
+      res,
+      "Your account is pending approval from your local government. Please contact your local government office for approval.",
+      401,
+    )
+  }
 
-    const message =
-      user.userType === "citizen"
-        ? "Your account is pending approval from your local government. Please contact your local government office for approval."
-        : "Your social project account is pending approval from your local government. Please contact your local government office for approval."
-
-    return ResponseHelper.error(res, message, 401)
+  if (user.userType === "social_project" && !user.isGovernmentApproved) {
+    console.log("[v0] Social project login blocked - government approval pending:", user._id, user.email)
+    await LoginAttempt.logAttempt({
+      identifier,
+      ip,
+      userAgent,
+      success: false,
+      failureReason: "government_not_approved",
+      user: user._id,
+    })
+    return ResponseHelper.error(
+      res,
+      "Your social project account is pending approval from your local government. Please contact your local government office for approval.",
+      401,
+    )
   }
 
   // Block government users from logging in until superadmin verifies
@@ -868,7 +880,7 @@ const registerSocial = asyncHandler(async (req, res) => {
     isSuperAdminVerified: true,
   })
 
-  const approvalStatus = "pending" // Always pending until government manually approves
+  const approvalStatus = government ? "approved" : "pending"
 
   await RegistrationApproval.create({
     applicationType: "social_project",
@@ -879,8 +891,19 @@ const registerSocial = asyncHandler(async (req, res) => {
     country: country,
     province: province,
     city: city,
-    // Do NOT set reviewedBy, reviewedAt, or approvalDecision - only government can set these
+    ...(government && {
+      reviewedBy: government.userId,
+      reviewedAt: new Date(),
+      approvalDecision: "approved",
+    }),
   })
+
+  // Auto-approve social project if government exists
+  if (government) {
+    await User.findByIdAndUpdate(user._id, {
+      isGovernmentApproved: true,
+    })
+  }
 
   return ResponseHelper.success(
     res,
