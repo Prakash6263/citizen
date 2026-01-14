@@ -25,10 +25,10 @@ const createTokenRequest = asyncHandler(async (req, res) => {
     return errorResponse(res, "Proof document is required (image or PDF - tax or eligibility proof)", 400)
   }
 
-  const allowedMimeTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp", "application/pdf"]
-  if (!allowedMimeTypes.includes(req.file.mimetype)) {
-    return errorResponse(res, "Invalid file type. Only images (JPEG, PNG, GIF, WebP) and PDFs are allowed", 400)
-  }
+//   const allowedMimeTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp", "application/pdf"]
+//   if (!allowedMimeTypes.includes(req.file.mimetype)) {
+//     return errorResponse(res, "Invalid file type. Only images (JPEG, PNG, GIF, WebP) and PDFs are allowed", 400)
+//   }
 
   // Validate file size (max 10MB)
   if (req.file.size > 10 * 1024 * 1024) {
