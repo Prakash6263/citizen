@@ -84,6 +84,10 @@ const registrationApprovalSchema = new mongoose.Schema(
       default: Date.now,
     },
     expiresAt: Date,
+
+    country: String,
+    province: String,
+    city: String,
   },
   {
     timestamps: true,
@@ -94,5 +98,6 @@ const registrationApprovalSchema = new mongoose.Schema(
 registrationApprovalSchema.index({ applicationType: 1, status: 1 })
 registrationApprovalSchema.index({ reviewedBy: 1 })
 registrationApprovalSchema.index({ submittedAt: -1 })
+registrationApprovalSchema.index({ city: 1, applicationType: 1, status: 1 })
 
 module.exports = mongoose.model("RegistrationApproval", registrationApprovalSchema)

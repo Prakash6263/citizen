@@ -50,6 +50,7 @@ const register = asyncHandler(async (req, res) => {
     agreedToTerms,
     agreedToPrivacy,
     registrationIP: req.ip,
+    isGovernmentApproved: userType === "government" ? false : false, // Will be set to true only when government approves
   })
 
   const verificationOTP = user.getEmailVerificationOTP()
@@ -83,29 +84,30 @@ const register = asyncHandler(async (req, res) => {
 
   if (userType === "citizen") {
     const RegistrationApproval = require("../models/RegistrationApproval")
-    await RegistrationApproval.create({
+    const Government = require("../models/Government")
+
+    const government = await Government.findOne({
+      city: city,
+      province: province,
+      country: country,
+      status: "approved",
+      isSuperAdminVerified: true,
+    })
+
+    const approvalStatus = "pending" // Always pending until government manually approves
+
+    const approval = await RegistrationApproval.create({
       applicationType: "citizen",
       applicantId: user._id,
       applicantModel: "User",
-      status: "pending",
+      status: approvalStatus,
       submittedAt: new Date(),
+      country: country,
+      province: province,
+      city: city,
+      // Do NOT set reviewedBy, reviewedAt, or approvalDecision - only government can set these
     })
   }
-
-  // Generate tokens
-  const token = user.getSignedJwtToken()
-  const refreshToken = user.getRefreshToken()
-
-  // Save refresh token
-  await RefreshToken.create({
-    token: refreshToken,
-    user: user._id,
-    deviceInfo: {
-      userAgent: req.get("User-Agent"),
-      ip: req.ip,
-      deviceType: req.get("User-Agent")?.includes("Mobile") ? "mobile" : "desktop",
-    },
-  })
 
   // Remove password from response
   user.password = undefined
@@ -114,9 +116,8 @@ const register = asyncHandler(async (req, res) => {
     res,
     {
       user,
-      token,
-      refreshToken,
-      message: "Registration successful! Please check your email for the 6-digit verification code.",
+      message:
+        "Registration successful! Please check your email for the 6-digit verification code. Your account will be activated after email verification and local government approval.",
     },
     "User registered successfully",
     201,
@@ -182,7 +183,17 @@ const login = asyncHandler(async (req, res) => {
     return ResponseHelper.error(res, "Account is deactivated. Please contact support.", 401)
   }
 
-  if (!user.isEmailVerified) {
+  console.log("[v0] Login attempt - User details:", {
+    userId: user._id,
+    email: user.email,
+    userType: user.userType,
+    isGovernmentApproved: user.isGovernmentApproved,
+    emailVerified: user.emailVerified,
+  })
+
+  // Check email verification FIRST
+  if (!user.emailVerified) {
+    console.log("[v0] Email not verified:", user._id, user.email)
     await LoginAttempt.logAttempt({
       identifier,
       ip,
@@ -194,9 +205,32 @@ const login = asyncHandler(async (req, res) => {
 
     return ResponseHelper.error(
       res,
-      "Please verify your email address before logging in. Check your inbox for the verification link.",
+      "Please verify your email address before logging in. Check your inbox for the verification code.",
       401,
     )
+  }
+
+  if ((user.userType === "citizen" || user.userType === "social_project") && !user.isGovernmentApproved) {
+    console.log("[v0] Login blocked - government approval pending:", {
+      userId: user._id,
+      userType: user.userType,
+      isGovernmentApproved: user.isGovernmentApproved,
+    })
+    await LoginAttempt.logAttempt({
+      identifier,
+      ip,
+      userAgent,
+      success: false,
+      failureReason: "government_not_approved",
+      user: user._id,
+    })
+
+    const message =
+      user.userType === "citizen"
+        ? "Your account is pending approval from your local government. Please contact your local government office for approval."
+        : "Your social project account is pending approval from your local government. Please contact your local government office for approval."
+
+    return ResponseHelper.error(res, message, 401)
   }
 
   // Block government users from logging in until superadmin verifies
@@ -212,7 +246,6 @@ const login = asyncHandler(async (req, res) => {
     return ResponseHelper.error(res, "Your account is pending super admin verification. Please try again later.", 401)
   }
 
-  // Check password
   const isMatch = await user.matchPassword(password)
   if (!isMatch) {
     await LoginAttempt.logAttempt({
@@ -795,6 +828,7 @@ const registerSocial = asyncHandler(async (req, res) => {
     agreedToTerms,
     agreedToPrivacy,
     registrationIP: req.ip,
+    isGovernmentApproved: false, // Will be set to true only when government approves
   })
 
   const verificationOTP = user.getEmailVerificationOTP()
@@ -821,6 +855,31 @@ const registerSocial = asyncHandler(async (req, res) => {
     ip: req.ip,
     userAgent: req.get("User-Agent"),
     severity: "low",
+  })
+
+  const RegistrationApproval = require("../models/RegistrationApproval")
+  const Government = require("../models/Government")
+
+  const government = await Government.findOne({
+    city: city,
+    province: province,
+    country: country,
+    status: "approved",
+    isSuperAdminVerified: true,
+  })
+
+  const approvalStatus = "pending" // Always pending until government manually approves
+
+  await RegistrationApproval.create({
+    applicationType: "social_project",
+    applicantId: user._id,
+    applicantModel: "User",
+    status: approvalStatus,
+    submittedAt: new Date(),
+    country: country,
+    province: province,
+    city: city,
+    // Do NOT set reviewedBy, reviewedAt, or approvalDecision - only government can set these
   })
 
   return ResponseHelper.success(
