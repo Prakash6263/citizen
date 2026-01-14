@@ -30,9 +30,8 @@ const projectUpdateRoutes = require("./routes/ProjectUpdate")
 const citizenRoutes = require("./routes/citizens")
 const allocationLimitRoutes = require("./routes/allocationLimits") // Import allocation limits routes
 const policyRoutes = require("./routes/policies")
-// Import middleware
-const errorHandler = require("./middleware/errorHandler")
-const notFound = require("./middleware/notFound")
+const fundRequestRoutes = require("./routes/fundRequests") // Import fund request routes
+const tokenRequestRoutes = require("./routes/tokenRequests") // Added token request routes import
 
 const app = express()
 
@@ -40,9 +39,7 @@ const app = express()
 app.use(helmet())
 app.use(compression())
 
-// const uploadsPath = path.resolve(process.cwd(), "uploads")
-const uploadsPath = path.join(__dirname, "../uploads");
-
+const uploadsPath = path.join(__dirname, "../uploads")
 
 if (!fs.existsSync(uploadsPath)) {
   fs.mkdirSync(uploadsPath, { recursive: true })
@@ -57,8 +54,7 @@ app.use("/uploads", (req, res, next) => {
   res.header("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
   res.header("Access-Control-Allow-Headers", "Content-Type")
   res.header("Cache-Control", "public, max-age=31536000, immutable")
-  // const filePath = path.join(process.cwd(), "uploads", req.path)
-  const filePath = path.join(uploadsPath, req.path);
+  const filePath = path.join(uploadsPath, req.path)
 
   console.log("[v0] Static file request:", { path: req.path, filePath, exists: fs.existsSync(filePath) })
   next()
@@ -106,7 +102,7 @@ const allowedOrigins = [
   "http://localhost:5000",
   "http://82.29.178.117", // Live domain
   "https://citizenssss.duckdns.org",
-  "https://citizen.aitechnotech.in"
+  "https://citizen.aitechnotech.in",
 ]
 
 app.use(
@@ -143,8 +139,6 @@ app.get("/health", (req, res) => {
   })
 })
 
-
-
 // API routes - Core functionality
 app.use("/api/auth", authRoutes)
 app.use("/api/user", userRoutes)
@@ -165,7 +159,24 @@ app.use("/api/social-projects", socialProjectRegistrationRoutes)
 app.use("/api/allocation-limits", allocationLimitRoutes) // Add allocation limits routes
 app.use("/api", projectUpdateRoutes)
 app.use("/api/policies", policyRoutes)
+app.use("/api/fund-requests", fundRequestRoutes) // Register fund request routes
+app.use("/api/token-requests", tokenRequestRoutes) // Register token request routes
+
 // Error handling middleware (must be last)
+const notFound = (req, res, next) => {
+  res.status(404).json({
+    status: "error",
+    message: "Not Found",
+  })
+}
+
+const errorHandler = (err, req, res, next) => {
+  res.status(500).json({
+    status: "error",
+    message: err.message,
+  })
+}
+
 app.use(notFound)
 app.use(errorHandler)
 
@@ -202,6 +213,8 @@ const startServer = async () => {
    • Social Project Module: Registration, Approvals, Comments, Analytics  
    • Government Module: Registration, Approvals, Token Management
    • Token Claim Module: Token Claims
+   • Fund Request Module: Fund Requests
+   • Token Request Module: Token Requests
     `)
   })
 }

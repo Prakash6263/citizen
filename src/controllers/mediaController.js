@@ -2,8 +2,8 @@ const multer = require("multer")
 const path = require("path")
 const fs = require("fs").promises
 const User = require("../models/User")
-const Project = require("../models/Project") // Declare Project variable
-const ProjectUpdate = require("../models/ProjectUpdate") // Declare ProjectUpdate variable
+const SocialProjectRegistration = require("../models/SocialProjectRegistration")
+const ProjectUpdate = require("../models/ProjectUpdate")
 const asyncHandler = require("../utils/asyncHandler")
 const { successResponse, errorResponse } = require("../utils/responseHelper")
 const localStorageService = require("../utils/localStorageService")
@@ -44,7 +44,7 @@ const upload = multer({
 // @route   POST /api/media/projects/:projectId/documents
 // @access  Private (Project owner only)
 const uploadProjectDocuments = asyncHandler(async (req, res) => {
-  const project = await Project.findById(req.params.projectId)
+  const project = await SocialProjectRegistration.findById(req.params.projectId)
 
   if (!project) {
     return errorResponse(res, "Project not found", 404)
@@ -95,7 +95,7 @@ const uploadProjectDocuments = asyncHandler(async (req, res) => {
 // @route   POST /api/media/projects/:projectId/images
 // @access  Private (Project owner only)
 const uploadProjectImages = asyncHandler(async (req, res) => {
-  const project = await Project.findById(req.params.projectId)
+  const project = await SocialProjectRegistration.findById(req.params.projectId)
 
   if (!project) {
     return errorResponse(res, "Project not found", 404)
@@ -213,7 +213,7 @@ const uploadUpdateMedia = asyncHandler(async (req, res) => {
 // @route   DELETE /api/media/projects/:projectId/documents/:documentId
 // @access  Private (Project owner only)
 const deleteProjectDocument = asyncHandler(async (req, res) => {
-  const project = await Project.findById(req.params.projectId)
+  const project = await SocialProjectRegistration.findById(req.params.projectId)
 
   if (!project) {
     return errorResponse(res, "Project not found", 404)
@@ -246,7 +246,7 @@ const deleteProjectDocument = asyncHandler(async (req, res) => {
 // @route   DELETE /api/media/projects/:projectId/images/:imageId
 // @access  Private (Project owner only)
 const deleteProjectImage = asyncHandler(async (req, res) => {
-  const project = await Project.findById(req.params.projectId)
+  const project = await SocialProjectRegistration.findById(req.params.projectId)
 
   if (!project) {
     return errorResponse(res, "Project not found", 404)
@@ -319,7 +319,7 @@ const getMediaInfo = asyncHandler(async (req, res) => {
   try {
     switch (type) {
       case "project":
-        const project = await Project.findById(id).select("documents images title")
+        const project = await SocialProjectRegistration.findById(id).select("documents images title")
         if (!project) {
           return errorResponse(res, "Project not found", 404)
         }
@@ -367,7 +367,7 @@ const updateMediaCaption = asyncHandler(async (req, res) => {
 
     switch (type) {
       case "project-image":
-        const project = await Project.findById(parentId)
+        const project = await SocialProjectRegistration.findById(parentId)
         if (!project) {
           return errorResponse(res, "Project not found", 404)
         }
