@@ -116,8 +116,7 @@ const register = asyncHandler(async (req, res) => {
       user,
       token,
       refreshToken,
-      message:
-        "Registration successful! Please check your email for the 6-digit verification code. Your account will be activated after government approval.",
+      message: "Registration successful! Please check your email for the 6-digit verification code.",
     },
     "User registered successfully",
     201,
@@ -196,23 +195,6 @@ const login = asyncHandler(async (req, res) => {
     return ResponseHelper.error(
       res,
       "Please verify your email address before logging in. Check your inbox for the verification link.",
-      401,
-    )
-  }
-
-  if (user.userType === "citizen" && !user.isGovernmentApproved) {
-    await LoginAttempt.logAttempt({
-      identifier,
-      ip,
-      userAgent,
-      success: false,
-      failureReason: "government_approval_pending",
-      user: user._id,
-    })
-
-    return ResponseHelper.error(
-      res,
-      "Your account is pending government approval. You will be able to login once approved.",
       401,
     )
   }
