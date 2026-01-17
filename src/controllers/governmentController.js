@@ -1,166 +1,3 @@
-// const Government = require("../models/Government")
-// const User = require("../models/User")
-// const RegistrationApproval = require("../models/RegistrationApproval")
-// const { generateUniqueId } = require("../utils/helpers")
-// const { sendEmail } = require("../utils/emailService")
-// const asyncHandler = require("../utils/asyncHandler")
-// const { successResponse, errorResponse } = require("../utils/responseHelper")
-
-// // Step 1: Institutional Information
-// // @desc    Register government (step 1)
-// // @route   POST /api/government/register/step-1
-// // @access  Public
-// const registerGovernmentStep1 = asyncHandler(async (req, res) => {
-//   const {
-//     governmentName,
-//     entityType,
-//     country,
-//     province,
-//     city,
-//     representativeName,
-//     representativeRole,
-//     institutionalEmail,
-//   } = req.body
-
-//   // Unique by email or name+entity+city
-//   const existingGov = await Government.findOne({
-//     $or: [{ institutionalEmail }, { governmentName, entityType, city }],
-//   })
-//   if (existingGov) return errorResponse(res, "Government entity already started registration", 400)
-
-//   const registrationNumber = generateUniqueId("GOV")
-
-//   const government = await Government.create({
-//     governmentName,
-//     entityType,
-//     country,
-//     province,
-//     city,
-//     representativeName,
-//     representativeRole,
-//     institutionalEmail,
-//     registrationNumber,
-//     status: "pending",
-//     verificationStatus: "unverified",
-//   })
-
-//   // Only return id; step 2 will finalize and create approval
-//   return successResponse(
-//     res,
-//     "Government registration step 1 saved",
-//     {
-//       government: {
-//         _id: government._id,
-//         governmentName,
-//         registrationNumber,
-//         status: government.status,
-//       },
-//     },
-//     201,
-//   )
-// })
-
-// // Step 2: Main Contact & Consents -> Submit for approval
-// // @desc    Complete government registration (step 2)
-// // @route   PUT /api/government/register/step-2/:id
-// // @access  Public
-// const registerGovernmentStep2 = asyncHandler(async (req, res) => {
-//   const { id } = req.params
-//   const { officialWebsite, comments, consentContactBeforeActivation, acceptedTermsAndConditions } = req.body
-
-//   const government = await Government.findById(id)
-//   if (!government) return errorResponse(res, "Government draft not found", 404)
-
-//   // Persist step-2 details
-//   government.officialWebsite = officialWebsite
-//   government.comments = comments
-//   government.consentContactBeforeActivation = !!consentContactBeforeActivation
-//   government.acceptedTermsAndConditions = !!acceptedTermsAndConditions
-//   await government.save()
-
-//   await RegistrationApproval.create({
-//     applicationType: "government",
-//     applicantId: government._id,
-//     applicantModel: "Government", // Specify which model the applicantId references
-//     status: "pending",
-//     submittedAt: new Date(),
-//   })
-
-//   // Acknowledge submission to institutional email
-//   await sendEmail({
-//     email: government.institutionalEmail,
-//     subject: "Government Registration Submitted",
-//     template: "governmentRegistrationSubmitted",
-//     data: {
-//       governmentName: government.governmentName,
-//       representativeName: government.representativeName,
-//       registrationNumber: government.registrationNumber,
-//     },
-//   })
-
-//   return successResponse(res, "Government registration submitted successfully", {
-//     government: {
-//       _id: government._id,
-//       governmentName: government.governmentName,
-//       status: government.status,
-//     },
-//   })
-// })
-
-// // @desc    Get government profile
-// // @route   GET /api/government/profile
-// // @access  Private
-// const getGovernmentProfile = asyncHandler(async (req, res) => {
-//   const government = await Government.findOne({ userId: req.user._id })
-//     .populate("userId", "fullName email")
-//     .populate("approvedBy", "fullName")
-
-//   if (!government) {
-//     return errorResponse(res, "Government profile not found", 404)
-//   }
-
-//   successResponse(res, "Government profile retrieved successfully", { government })
-// })
-
-// // @desc    Update government profile
-// // @route   PUT /api/government/profile
-// // @access  Private
-// const updateGovernmentProfile = asyncHandler(async (req, res) => {
-//   const government = await Government.findOne({ userId: req.user._id })
-
-//   if (!government) {
-//     return errorResponse(res, "Government profile not found", 404)
-//   }
-
-//   // Only allow updates if not approved or if specific fields
-//   const allowedUpdates = ["representativeName", "representativeRole", "officialWebsite", "comments"]
-
-//   const updates = {}
-//   allowedUpdates.forEach((field) => {
-//     if (req.body[field] !== undefined) {
-//       updates[field] = req.body[field]
-//     }
-//   })
-
-//   const updatedGovernment = await Government.findByIdAndUpdate(government._id, updates, {
-//     new: true,
-//     runValidators: true,
-//   })
-
-//   successResponse(res, "Government profile updated successfully", {
-//     government: updatedGovernment,
-//   })
-// })
-
-// module.exports = {
-//   registerGovernmentStep1,
-//   registerGovernmentStep2,
-//   getGovernmentProfile,
-//   updateGovernmentProfile,
-// }
-
-
-
 const Government = require("../models/Government")
 const User = require("../models/User")
 const RegistrationApproval = require("../models/RegistrationApproval")
@@ -326,27 +163,52 @@ const updateGovernmentProfile = asyncHandler(async (req, res) => {
 
 // REGISTRATION REQUEST REVIEW
 
-// @desc    Get pending citizen registrations (city-scoped)
+// @desc    Get pending citizen registrations (city-scoped) – FIXED PROPERLY
 // @route   GET /api/government/registrations/citizens
 // @access  Private (government)
 const getPendingCitizenRegistrations = asyncHandler(async (req, res) => {
   const government = await Government.findOne({ userId: req.user._id })
-  if (!government) return errorResponse(res, "Government profile not found", 404)
+  if (!government) {
+    return errorResponse(res, "Government profile not found", 404)
+  }
 
   const { page = 1, limit = 20, status = "pending" } = req.query
+  const skip = (page - 1) * limit
 
-  const registrations = await RegistrationApproval.find({
+  // 1️⃣ Fetch approval records (city isolation at DB level)
+  const approvals = await RegistrationApproval.find({
     applicationType: "citizen",
     status,
     country: government.country,
     province: government.province,
     city: government.city,
   })
-    .populate("applicantId", "fullName email city isGovernmentApproved")
-    .skip((page - 1) * limit)
-    .limit(Number(limit))
     .sort({ submittedAt: -1 })
+    .skip(skip)
+    .limit(Number(limit))
+    .lean()
 
+  // 2️⃣ MANUAL population (THIS IS THE FIX)
+  const results = []
+
+  for (const approval of approvals) {
+    const citizen = await User.findById(approval.applicantId)
+      .select("fullName email username city userType isGovernmentApproved isEmailVerified createdAt")
+      .lean()
+
+    if (
+      citizen &&
+      citizen.userType === "citizen" &&
+      citizen.isGovernmentApproved === false
+    ) {
+      results.push({
+        ...approval,
+        applicant: citizen,
+      })
+    }
+  }
+
+  // 3️⃣ Count for pagination
   const total = await RegistrationApproval.countDocuments({
     applicationType: "citizen",
     status,
@@ -355,11 +217,17 @@ const getPendingCitizenRegistrations = asyncHandler(async (req, res) => {
     city: government.city,
   })
 
-  successResponse(res, "Citizen registrations retrieved", {
-    registrations,
-    pagination: { page: Number(page), limit: Number(limit), total },
+  return successResponse(res, "Citizen registrations retrieved", {
+    registrations: results,
+    pagination: {
+      page: Number(page),
+      limit: Number(limit),
+      total,
+    },
   })
 })
+
+
 
 // @desc    Get pending social project registrations (city-scoped)
 // @route   GET /api/government/registrations/projects
@@ -397,57 +265,65 @@ const getPendingSocialProjectRegistrations = asyncHandler(async (req, res) => {
 })
 
 // @desc    Approve citizen registration
-// @route   POST /api/government/registrations/citizens/:registrationId/approve
-// @access  Private (government)
+// @route   POST /api/government/registrations/citizens/approve
+// @access  Private (Government)
 const approveCitizenRegistration = asyncHandler(async (req, res) => {
-  const { registrationId } = req.params
-  const { rejectionReason } = req.body
+  const { approvalId } = req.body
 
-  const government = await Government.findOne({ userId: req.user._id })
-  if (!government) return errorResponse(res, "Government profile not found", 404)
-
-  const registration = await RegistrationApproval.findById(registrationId).populate("applicantId")
-  if (!registration) return errorResponse(res, "Registration not found", 404)
-
-  if (registration.applicantId.city !== government.city) {
-    return errorResponse(res, "Cannot approve registration from a different city", 403)
+  // 1️⃣ Validate input
+  if (!approvalId) {
+    return errorResponse(res, "approvalId is required", 400)
   }
 
-  // Update registration status
-  registration.status = "approved"
-  registration.approvedAt = new Date()
-  registration.approvedBy = req.user._id
-  await registration.save()
+  // 2️⃣ Get government profile
+  const government = await Government.findOne({ userId: req.user._id })
+  if (!government) {
+    return errorResponse(res, "Government profile not found", 404)
+  }
 
-  // Update citizen status
-  const citizen = await User.findByIdAndUpdate(
-    registration.applicantId._id,
-    { isGovernmentApproved: true },
-    { new: true },
-  )
+  // 3️⃣ Get approval record
+  const approval = await RegistrationApproval.findById(approvalId)
+  if (!approval) {
+    return errorResponse(res, "Registration approval not found", 404)
+  }
 
-  // Log audit trail
-  await AuditLog.logAction({
-    user: req.user._id,
-    action: "approve_citizen_registration",
-    description: `Approved citizen registration for ${citizen.fullName}`,
-    governmentId: government._id,
-    entityType: "citizen",
-    entityId: citizen._id,
-    city: government.city,
-    ip: req.ip,
-    userAgent: req.get("user-agent"),
+  // 4️⃣ Enforce city isolation (CRITICAL)
+  if (
+    approval.country !== government.country ||
+    approval.province !== government.province ||
+    approval.city !== government.city
+  ) {
+    return errorResponse(res, "You are not authorized to approve this citizen", 403)
+  }
+
+  // 5️⃣ Prevent double approval
+  if (approval.status !== "pending") {
+    return errorResponse(res, "This request has already been processed", 400)
+  }
+
+  // 6️⃣ Get citizen user
+  const citizen = await User.findById(approval.applicantId)
+  if (!citizen || citizen.userType !== "citizen") {
+    return errorResponse(res, "Citizen not found", 404)
+  }
+
+  // 7️⃣ Approve registration
+  approval.status = "approved"
+  approval.reviewedBy = req.user._id
+  approval.reviewedAt = new Date()
+  approval.approvalDecision = "approved"
+  await approval.save()
+
+  // 8️⃣ Approve citizen account
+  citizen.isGovernmentApproved = true
+  await citizen.save()
+
+  // 9️⃣ Success response
+  return successResponse(res, "Citizen approved successfully", {
+    approvalId: approval._id,
+    citizenId: citizen._id,
+    citizenName: citizen.fullName,
   })
-
-  // Send approval email to citizen
-  await sendEmail({
-    email: citizen.email,
-    subject: "Registration Approved",
-    template: "citizenRegistrationApproved",
-    data: { citizenName: citizen.fullName },
-  })
-
-  successResponse(res, "Citizen registration approved", { registration })
 })
 
 // @desc    Reject citizen registration

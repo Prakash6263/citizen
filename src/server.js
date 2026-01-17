@@ -22,16 +22,15 @@ const adminRoutes = require("./routes/admin")
 const tokenRoutes = require("./routes/tokens")
 const dashboardRoutes = require("./routes/dashboard")
 const ecosystemRoutes = require("./routes/ecosystem")
-const tokenClaimRoutes = require("./routes/tokenClaims")
 const superadmin = require("./routes/superadminAuth")
 const socialProjectRegistrationRoutes = require("./routes/socialProjectRegistration")
 const projectSupportRoutes = require("./routes/projectSupport")
 const projectUpdateRoutes = require("./routes/ProjectUpdate")
 const citizenRoutes = require("./routes/citizens")
-const allocationLimitRoutes = require("./routes/allocationLimits") // Import allocation limits routes
+const allocationLimitRoutes = require("./routes/allocationLimits")
 const policyRoutes = require("./routes/policies")
-const fundRequestRoutes = require("./routes/fundRequests") // Import fund request routes
-const tokenRequestRoutes = require("./routes/tokenRequests") // Added token request routes import
+const fundRequestRoutes = require("./routes/fundRequests")
+const tokenRequestRoutes = require("./routes/tokenRequests")
 
 const app = express()
 
@@ -156,11 +155,11 @@ app.use("/api/ecosystem", ecosystemRoutes)
 
 app.use("/api/projects", projectSupportRoutes)
 app.use("/api/social-projects", socialProjectRegistrationRoutes)
-app.use("/api/allocation-limits", allocationLimitRoutes) // Add allocation limits routes
+app.use("/api/allocation-limits", allocationLimitRoutes)
 app.use("/api", projectUpdateRoutes)
 app.use("/api/policies", policyRoutes)
-app.use("/api/fund-requests", fundRequestRoutes) // Register fund request routes
-app.use("/api/token-requests", tokenRequestRoutes) // Register token request routes
+app.use("/api/fund-requests", fundRequestRoutes)
+app.use("/api/token-requests", tokenRequestRoutes)
 
 // Error handling middleware (must be last)
 const notFound = (req, res, next) => {
@@ -212,7 +211,6 @@ const startServer = async () => {
    • Citizen Module: Authentication, Profile, Support
    • Social Project Module: Registration, Approvals, Comments, Analytics  
    • Government Module: Registration, Approvals, Token Management
-   • Token Claim Module: Token Claims
    • Fund Request Module: Fund Requests
    • Token Request Module: Token Requests
     `)

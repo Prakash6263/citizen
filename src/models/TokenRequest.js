@@ -23,18 +23,6 @@ const tokenRequestSchema = new mongoose.Schema(
       index: true,
     },
 
-    // Token Request Details
-    tokenAmount: {
-      type: Number,
-      required: true,
-      min: 1,
-    },
-
-    requestReason: {
-      type: String,
-      trim: true,
-    },
-
     // Proof Documents (image or PDF)
     proofDocuments: [
       {
@@ -68,6 +56,11 @@ const tokenRequestSchema = new mongoose.Schema(
     reviewNotes: String,
 
     rejectionReason: String,
+
+    issueAmount: {
+      type: Number,
+      min: 1,
+    },
 
     // Token Transaction Reference (created on approval)
     tokenTransaction: {

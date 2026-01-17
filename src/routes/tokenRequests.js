@@ -3,6 +3,9 @@ const {
   createTokenRequest,
   getMyTokenRequests,
   getTokenRequestDetails,
+  getPendingTokenRequests,
+  approveTokenRequest,
+  rejectTokenRequest,
 } = require("../controllers/tokenRequestController")
 const { protect, authorize } = require("../middleware/auth")
 const { upload } = require("../controllers/mediaController")
@@ -12,13 +15,14 @@ const router = express.Router()
 // All routes require authentication
 router.use(protect)
 
-// Citizen can create token requests
+// Citizen routes
 router.post("/", authorize("citizen"), upload.single("proofDocument"), createTokenRequest)
-
-// Citizen can view their token requests
 router.get("/", authorize("citizen"), getMyTokenRequests)
-
-// Citizen can view specific token request details
 router.get("/:tokenRequestId", authorize("citizen"), getTokenRequestDetails)
+
+// Government routes
+router.get("/government/pending", authorize("government"), getPendingTokenRequests)
+router.post("/:tokenRequestId/approve", authorize("government"), approveTokenRequest)
+router.post("/:tokenRequestId/reject", authorize("government"), rejectTokenRequest)
 
 module.exports = router
