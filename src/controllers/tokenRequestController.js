@@ -26,6 +26,13 @@ const createTokenRequest = asyncHandler(async (req, res) => {
   }
 
   try {
+    console.log("[v0] Creating token request for citizen:", {
+      citizenId: req.user._id,
+      citizenEmail: req.user.email,
+      citizenCity: req.user.city,
+      fileName: req.file.originalname,
+    })
+
     // Upload proof document
     const uploadResult = await localStorageService.uploadFile(req.file.buffer, {
       folder: `municipality/token-requests/${req.user._id}/proof`,
@@ -55,6 +62,12 @@ const createTokenRequest = asyncHandler(async (req, res) => {
         ipAddress: req.ip,
         userAgent: req.get("user-agent"),
       },
+    })
+
+    console.log("[v0] Token request created successfully:", {
+      tokenRequestId: tokenRequest.tokenRequestId,
+      savedCity: tokenRequest.city,
+      status: tokenRequest.status,
     })
 
     // Audit log
@@ -139,7 +152,7 @@ const getTokenRequestDetails = asyncHandler(async (req, res) => {
 })
 
 // @desc    Get pending token requests for government (city-based isolation)
-// @route   GET /api/government/token-requests
+// @route   GET /api/token-requests/government
 // @access  Private (government)
 const getPendingTokenRequests = asyncHandler(async (req, res) => {
   // Verify government permissions
@@ -148,6 +161,13 @@ const getPendingTokenRequests = asyncHandler(async (req, res) => {
   }
 
   const { page = 1, limit = 20, status } = req.query
+
+  console.log("[v0] Government user requesting token requests:", {
+    governmentId: req.user._id,
+    governmentCity: req.user.city,
+    userType: req.user.userType,
+    status: status || "all",
+  })
 
   const filter = { city: req.user.city } // City isolation - government only sees their city's requests
   if (status) {
@@ -162,6 +182,12 @@ const getPendingTokenRequests = asyncHandler(async (req, res) => {
     .sort({ createdAt: -1 })
 
   const total = await TokenRequest.countDocuments(filter)
+
+  console.log("[v0] Token requests found:", {
+    count: tokenRequests.length,
+    total,
+    filter,
+  })
 
   successResponse(res, "Token requests retrieved", {
     requests: tokenRequests,
