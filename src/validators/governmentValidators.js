@@ -28,16 +28,7 @@ const governmentRegistrationValidation = [
 ]
 
 const approvalValidation = [
-  body("decision").isIn(["approved", "rejected", "requires_info"]).withMessage("Please provide a valid decision"),
-
-  body("reviewNotes").optional().isLength({ max: 1000 }).withMessage("Review notes cannot exceed 1000 characters"),
-
-  body("rejectionReason")
-    .if(body("decision").equals("rejected"))
-    .notEmpty()
-    .withMessage("Rejection reason is required when rejecting"),
-
-  body("conditions").optional().isArray().withMessage("Conditions must be an array"),
+  body("decision").isIn(["approved", "rejected"]).withMessage("Please provide a valid decision (approved or rejected)"),
 ]
 
 const tokenIssuanceValidation = [
