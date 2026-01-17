@@ -3,7 +3,6 @@ const {
   getPendingApprovals,
   getApprovalDetails,
   processApprovalDecision,
-  addCommunication,
   getApprovalStats,
 } = require("../controllers/approvalController")
 const { protect, authorize } = require("../middleware/auth")
@@ -61,17 +60,6 @@ router.put(
   approvalValidation,
   handleValidationErrors,
   processApprovalDecision,
-)
-
-router.post(
-  "/approvals/:id/communicate",
-  (req, res, next) => {
-    if (req.user.userType !== "government" && req.user.role !== "superadmin") {
-      return res.status(403).json({ message: "Access denied" })
-    }
-    next()
-  },
-  addCommunication,
 )
 
 module.exports = router

@@ -166,7 +166,7 @@ const getApprovalDetails = asyncHandler(async (req, res) => {
 // @route   PUT /api/admin/approvals/:id/decision
 // @access  Private (Admin only)
 const processApprovalDecision = asyncHandler(async (req, res) => {
-  const { decision, reviewNotes, rejectionReason, conditions } = req.body
+  const { decision } = req.body
 
   const approval = await RegistrationApproval.findById(req.params.id)
   if (!approval) return errorResponse(res, "Approval record not found", 404)
@@ -200,9 +200,6 @@ const processApprovalDecision = asyncHandler(async (req, res) => {
   approval.approvalDecision = decision
   approval.reviewedBy = req.user._id
   approval.reviewedAt = new Date()
-  approval.reviewNotes = reviewNotes
-  approval.rejectionReason = decision === "rejected" ? rejectionReason : undefined
-  approval.conditions = conditions ?? approval.conditions
   await approval.save()
 
   let updatedGovernment
@@ -213,7 +210,6 @@ const processApprovalDecision = asyncHandler(async (req, res) => {
         status: decision === "approved" ? "approved" : "rejected",
         approvedBy: req.user._id,
         approvedAt: decision === "approved" ? new Date() : undefined,
-        rejectionReason: decision === "rejected" ? rejectionReason : undefined,
         ...(decision === "approved" ? { isSuperAdminVerified: true } : {}),
       },
       { new: true },
@@ -298,9 +294,6 @@ const processApprovalDecision = asyncHandler(async (req, res) => {
         template: emailTemplate,
         data: {
           name: applicantName,
-          reviewNotes,
-          rejectionReason,
-          conditions,
         },
       })
     } catch (emailError) {
@@ -315,30 +308,6 @@ const processApprovalDecision = asyncHandler(async (req, res) => {
     `Registration ${decision === "approved" ? "approved" : "rejected"} successfully`,
     responseData,
   )
-})
-
-// @desc    Add communication to approval
-// @route   POST /api/admin/approvals/:id/communicate
-// @access  Private (Admin only)
-const addCommunication = asyncHandler(async (req, res) => {
-  const { message, messageType } = req.body
-
-  const approval = await RegistrationApproval.findById(req.params.id)
-
-  if (!approval) {
-    return errorResponse(res, "Approval record not found", 404)
-  }
-
-  approval.communicationLog.push({
-    message,
-    messageType,
-    sentBy: req.user._id,
-    sentAt: new Date(),
-  })
-
-  await approval.save()
-
-  successResponse(res, "Communication added successfully", { approval })
 })
 
 // @desc    Get approval statistics
@@ -383,6 +352,5 @@ module.exports = {
   getPendingApprovals,
   getApprovalDetails,
   processApprovalDecision,
-  addCommunication,
   getApprovalStats,
 }
