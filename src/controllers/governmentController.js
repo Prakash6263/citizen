@@ -237,29 +237,44 @@ const getPendingSocialProjectRegistrations = asyncHandler(async (req, res) => {
   if (!government) return errorResponse(res, "Government profile not found", 404)
 
   const { page = 1, limit = 20, status = "pending" } = req.query
+  const skip = (page - 1) * limit
 
-  const registrations = await RegistrationApproval.find({
-    applicationType: "social_project",
-    status,
-    country: government.country,
-    province: government.province,
+  // Fetch social project registrations from the same city
+  const registrations = await SocialProjectRegistration.find({
     city: government.city,
+    country: government.country,
+    state: government.province,
+    status: status,
   })
-    .populate("applicantId", "fullName email city")
-    .skip((page - 1) * limit)
+    .populate("user", "fullName email city")
+    .skip(skip)
     .limit(Number(limit))
     .sort({ submittedAt: -1 })
+    .lean()
 
-  const total = await RegistrationApproval.countDocuments({
-    applicationType: "social_project",
-    status,
-    country: government.country,
-    province: government.province,
+  const total = await SocialProjectRegistration.countDocuments({
     city: government.city,
+    country: government.country,
+    state: government.province,
+    status: status,
   })
 
+  // Format response with projects
+  const formattedRegistrations = registrations.map((reg) => ({
+    _id: reg._id,
+    projectOrganizationName: reg.projectOrganizationName,
+    user: reg.user,
+    city: reg.city,
+    state: reg.state,
+    country: reg.country,
+    status: reg.status,
+    submittedAt: reg.submittedAt,
+    projectsCount: reg.projects ? reg.projects.length : 0,
+    projects: reg.projects || [],
+  }))
+
   successResponse(res, "Social project registrations retrieved", {
-    registrations,
+    registrations: formattedRegistrations,
     pagination: { page: Number(page), limit: Number(limit), total },
   })
 })
@@ -380,21 +395,61 @@ const rejectCitizenRegistration = asyncHandler(async (req, res) => {
 // @access  Private (government)
 const approveSocialProjectRegistration = asyncHandler(async (req, res) => {
   const { projectId } = req.params
+  const { approvalNotes } = req.body
 
   const government = await Government.findOne({ userId: req.user._id })
   if (!government) return errorResponse(res, "Government profile not found", 404)
 
-  const project = await SocialProjectRegistration.findById(projectId).populate("user")
+  const project = await SocialProjectRegistration.findById(projectId).populate("user", "fullName email")
   if (!project) return errorResponse(res, "Project registration not found", 404)
 
-  if (project.city !== government.city) {
+  // City-based authorization check
+  if (project.city !== government.city || project.country !== government.country || project.state !== government.province) {
     return errorResponse(res, "Cannot approve project from a different city", 403)
+  }
+
+  if (project.status !== "pending") {
+    return errorResponse(res, "This project has already been processed", 400)
   }
 
   project.status = "approved"
   project.approvedBy = req.user._id
   project.approvedAt = new Date()
+  if (approvalNotes) {
+    project.registrationNotes = approvalNotes
+  }
   await project.save()
+
+  // Update RegistrationApproval record
+  const approvalRecord = await RegistrationApproval.findOne({
+    applicantId: project._id,
+    applicantModel: "SocialProjectRegistration",
+  })
+  if (approvalRecord) {
+    approvalRecord.status = "approved"
+    approvalRecord.reviewedBy = req.user._id
+    approvalRecord.reviewedAt = new Date()
+    approvalRecord.approvalDecision = "approved"
+    await approvalRecord.save()
+  }
+
+  // Update user's registration status
+  await User.findByIdAndUpdate(project.user, {
+    isRegistrationProjectDone: true,
+    isGovernmentApproveProject: true,
+  })
+
+  // Update all projects under this registration to be visible in this city
+  if (project.projects && project.projects.length > 0) {
+    project.projects.forEach((proj) => {
+      if (proj.projectStatus === "pending_approval") {
+        proj.projectStatus = "active"
+        proj.approvedBy = req.user._id
+        proj.approvedAt = new Date()
+      }
+    })
+    await project.save()
+  }
 
   // Log audit trail
   await AuditLog.logAction({
@@ -414,7 +469,7 @@ const approveSocialProjectRegistration = asyncHandler(async (req, res) => {
     email: project.user.email,
     subject: "Project Registration Approved",
     template: "projectRegistrationApproved",
-    data: { projectName: project.projectOrganizationName },
+    data: { projectName: project.projectOrganizationName, approvalNotes },
   })
 
   successResponse(res, "Social project registration approved", { project })
@@ -430,16 +485,35 @@ const rejectSocialProjectRegistration = asyncHandler(async (req, res) => {
   const government = await Government.findOne({ userId: req.user._id })
   if (!government) return errorResponse(res, "Government profile not found", 404)
 
-  const project = await SocialProjectRegistration.findById(projectId).populate("user")
+  const project = await SocialProjectRegistration.findById(projectId).populate("user", "fullName email")
   if (!project) return errorResponse(res, "Project registration not found", 404)
 
-  if (project.city !== government.city) {
+  // City-based authorization check
+  if (project.city !== government.city || project.country !== government.country || project.state !== government.province) {
     return errorResponse(res, "Cannot reject project from a different city", 403)
+  }
+
+  if (project.status !== "pending") {
+    return errorResponse(res, "This project has already been processed", 400)
   }
 
   project.status = "rejected"
   project.rejectionReason = rejectionReason
   await project.save()
+
+  // Update RegistrationApproval record
+  const approvalRecord = await RegistrationApproval.findOne({
+    applicantId: project._id,
+    applicantModel: "SocialProjectRegistration",
+  })
+  if (approvalRecord) {
+    approvalRecord.status = "rejected"
+    approvalRecord.reviewedBy = req.user._id
+    approvalRecord.reviewedAt = new Date()
+    approvalRecord.approvalDecision = "rejected"
+    approvalRecord.rejectionReason = rejectionReason
+    await approvalRecord.save()
+  }
 
   // Log audit trail
   await AuditLog.logAction({

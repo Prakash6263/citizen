@@ -17,9 +17,21 @@ const socialProjectRegistrationValidation = [
     .withMessage("State must be between 2 and 50 characters"),
 
   body("allowedProjectTypes")
-    .isArray({ min: 1 })
-    .withMessage("At least one project type must be selected")
     .custom((value) => {
+      // Convert string to array if needed
+      let projectTypes = value
+      if (typeof value === "string") {
+        // If it's a string, split by comma
+        projectTypes = value.split(",").map((type) => type.trim())
+      } else if (!Array.isArray(value)) {
+        projectTypes = [value]
+      }
+
+      // Validate that we have at least one type
+      if (!projectTypes || projectTypes.length === 0) {
+        throw new Error("At least one project type must be selected")
+      }
+
       const validTypes = [
         "Infrastructure",
         "Environment",
@@ -32,10 +44,13 @@ const socialProjectRegistrationValidation = [
         "Sports & Recreation",
         "Other",
       ]
-      const allValid = value.every((type) => validTypes.includes(type))
+
+      // Validate all types are valid
+      const allValid = projectTypes.every((type) => validTypes.includes(type.trim()))
       if (!allValid) {
-        throw new Error("Invalid project type selected")
+        throw new Error("Invalid project type selected. Must be one of: " + validTypes.join(", "))
       }
+
       return true
     }),
 
