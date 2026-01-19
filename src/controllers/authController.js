@@ -82,7 +82,8 @@ const register = asyncHandler(async (req, res) => {
     severity: "low",
   })
 
-  if (userType === "citizen") {
+  // Create RegistrationApproval for citizens and social_project users
+  if (userType === "citizen" || userType === "social_project") {
     const RegistrationApproval = require("../models/RegistrationApproval")
     const Government = require("../models/Government")
 
@@ -97,7 +98,7 @@ const register = asyncHandler(async (req, res) => {
     const approvalStatus = "pending" // Always pending until government manually approves
 
     const approval = await RegistrationApproval.create({
-      applicationType: "citizen",
+      applicationType: userType, // "citizen" or "social_project"
       applicantId: user._id,
       applicantModel: "User",
       status: approvalStatus,

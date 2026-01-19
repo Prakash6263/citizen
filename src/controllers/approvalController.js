@@ -191,10 +191,6 @@ const processApprovalDecision = asyncHandler(async (req, res) => {
     return errorResponse(res, "Only superadmin can approve or reject government registrations", 403)
   }
 
-  if (type === "social_project") {
-    return errorResponse(res, "Use /api/projects/applications/:id/decision for project approval workflow", 400)
-  }
-
   // Update approval record
   approval.status = decision === "approved" ? "approved" : "rejected"
   approval.approvalDecision = decision
@@ -267,7 +263,8 @@ const processApprovalDecision = asyncHandler(async (req, res) => {
         })
       }
     }
-  } else if (type === "citizen") {
+  } else if (type === "citizen" || type === "social_project") {
+    // Handle both citizen and social_project approvals
     if (decision === "approved") {
       await User.findByIdAndUpdate(applicant._id, {
         isGovernmentApproved: true,

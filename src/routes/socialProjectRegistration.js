@@ -17,6 +17,7 @@ const {
   updateProject,
   getPendingProjectsApproval,
   approveProjectDecision,
+  getApprovedProjectsByCity,
 } = require("../controllers/socialProjectRegistrationController")
 
 const { protect, authorize, protectOptional } = require("../middleware/auth")
@@ -50,22 +51,6 @@ const upload = multer({
     }
   },
 })
-
-// ============================================
-// PUBLIC ROUTES (No Authentication Required)
-// ============================================
-
-// Get all active projects
-router.get("/public/active", getActiveProjectsPublic)
-
-// Get single project details
-router.get("/public/:projectId", protectOptional, getProjectDetailsPublic)
-
-// Get project funding details (public access)
-router.get("/:projectId/funding", getProjectFundingDetails)
-
-// Get all projects (admin view, public)
-router.get("/", getAllProjects)
 
 // ============================================
 // PROTECTED ROUTES (Authentication Required)
@@ -137,7 +122,26 @@ router.put(
 // CITIZEN USER ROUTES
 // ============================================
 
+// Get projects in citizen's city
+router.get("/citizen/my-city", authorize("citizen"), getApprovedProjectsByCity)
+
 // Support a project with tokens
 router.post("/:projectId/support", authorize("citizen"), supportProjectWithTokens)
+
+// ============================================
+// PUBLIC ROUTES (No Authentication Required)
+// ============================================
+
+// Get all active projects
+router.get("/public/active", getActiveProjectsPublic)
+
+// Get single project details
+router.get("/public/:projectId", protectOptional, getProjectDetailsPublic)
+
+// Get project funding details (public access)
+router.get("/:projectId/funding", getProjectFundingDetails)
+
+// Get all projects (admin view, public) - MUST BE LAST
+router.get("/", getAllProjects)
 
 module.exports = router
