@@ -12,25 +12,26 @@ const crypto = require("crypto")
 const checkProjectGoalCompletion = asyncHandler(async (req, res) => {
   const { projectId } = req.params
 
-  // Find the project
-  const socialProject = await SocialProjectRegistration.findById(projectId).populate(
-    "user",
-    "_id fullName email",
-  )
+  console.log("[v0] Checking project goal - projectId:", projectId)
+
+  // Find all social projects for the authenticated user
+  const socialProject = await SocialProjectRegistration.findOne({
+    "projects._id": projectId,
+    user: req.user._id,
+  }).populate("user", "_id fullName email")
 
   if (!socialProject) {
+    console.log("[v0] Project not found for user:", req.user._id)
     return errorResponse(res, "Project not found", 404)
   }
 
-  // Check if the authenticated user owns this project
-  if (socialProject.user._id.toString() !== req.user._id.toString()) {
-    return errorResponse(res, "Unauthorized: You can only check your own projects", 403)
-  }
+  console.log("[v0] Found social project registration:", socialProject._id)
 
   // Find the specific project within the registration
   const project = socialProject.projects.find((p) => p._id.toString() === projectId)
 
   if (!project) {
+    console.log("[v0] Project details not found in registration")
     return errorResponse(res, "Project details not found", 404)
   }
 
@@ -38,6 +39,8 @@ const checkProjectGoalCompletion = asyncHandler(async (req, res) => {
   const fundingGoal = project.fundingGoal || 0
   const tokensFunded = project.tokensFunded || 0
   const isGoalCompleted = tokensFunded >= fundingGoal && fundingGoal > 0
+
+  console.log("[v0] Project goal check - fundingGoal:", fundingGoal, "tokensFunded:", tokensFunded)
 
   successResponse(res, "Project goal status retrieved successfully", {
     projectId: project._id,
@@ -87,14 +90,20 @@ const requestTokenConversion = asyncHandler(async (req, res) => {
   }
 
   // Verify project exists and belongs to user
-  const socialProject = await SocialProjectRegistration.findById(projectId)
+  const socialProject = await SocialProjectRegistration.findOne({
+    "projects._id": projectId,
+    user: req.user._id,
+  })
 
   if (!socialProject) {
     return errorResponse(res, "Project not found", 404)
   }
 
-  if (socialProject.user.toString() !== req.user._id.toString()) {
-    return errorResponse(res, "Unauthorized: This project does not belong to you", 403)
+  // Find the specific project
+  const project = socialProject.projects.find((p) => p._id.toString() === projectId)
+
+  if (!project) {
+    return errorResponse(res, "Project details not found", 404)
   }
 
   // Calculate fiat amount
