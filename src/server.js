@@ -31,6 +31,7 @@ const allocationLimitRoutes = require("./routes/allocationLimits")
 const policyRoutes = require("./routes/policies")
 const fundRequestRoutes = require("./routes/fundRequests")
 const tokenRequestRoutes = require("./routes/tokenRequests")
+const tokenConversionRoutes = require("./routes/tokenConversion")
 
 const app = express()
 
@@ -160,6 +161,7 @@ app.use("/api", projectUpdateRoutes)
 app.use("/api/policies", policyRoutes)
 app.use("/api/fund-requests", fundRequestRoutes)
 app.use("/api/token-requests", tokenRequestRoutes)
+app.use("/api/token-conversion", tokenConversionRoutes)
 
 // Error handling middleware (must be last)
 const notFound = (req, res, next) => {

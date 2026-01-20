@@ -29,6 +29,7 @@ const loginAttemptSchema = new mongoose.Schema(
         "email_not_verified",
         "too_many_attempts",
         "government_approval_pending",
+        "government_not_approved",
         "superadmin_not_verified",
       ],
     },
