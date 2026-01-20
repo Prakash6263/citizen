@@ -231,7 +231,7 @@ const login = asyncHandler(async (req, res) => {
         ? "Your account is pending approval from your local government. Email has been verified, but you need approval from your local government office to login."
         : "Your social project account is pending approval from your local government. Email has been verified, but you need approval from your local government office to login."
 
-    return ResponseHelper.error(res, message, 401)
+    return ResponseHelper.error(res, message, 200)
   }
 
   // Block government users from logging in until superadmin verifies
