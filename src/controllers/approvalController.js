@@ -356,7 +356,7 @@ const processApprovalDecision = asyncHandler(async (req, res) => {
       });
     } catch (emailError) {
       console.error("Email sending failed:", emailError.message);
-      // Don't fail the entire operation if email fails
+      // Don't fail the entire operation if email failss
     }
   }
 
