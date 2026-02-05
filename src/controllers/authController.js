@@ -82,8 +82,8 @@ const register = asyncHandler(async (req, res) => {
     severity: "low",
   })
 
-  // Create RegistrationApproval for citizens and social_project users
-  if (userType === "citizen" || userType === "social_project") {
+  // Create RegistrationApproval for citizens only (social_project users don't need approval)
+  if (userType === "citizen") {
     const RegistrationApproval = require("../models/RegistrationApproval")
     const Government = require("../models/Government")
 
@@ -98,7 +98,7 @@ const register = asyncHandler(async (req, res) => {
     const approvalStatus = "pending" // Always pending until government manually approves
 
     const approval = await RegistrationApproval.create({
-      applicationType: userType, // "citizen" or "social_project"
+      applicationType: userType, // "citizen"
       applicantId: user._id,
       applicantModel: "User",
       status: approvalStatus,
@@ -113,12 +113,19 @@ const register = asyncHandler(async (req, res) => {
   // Remove password from response
   user.password = undefined
 
+  // Customize success message based on user type
+  let successMessage = "Registration successful! Please check your email for the 6-digit verification code."
+  if (userType === "citizen") {
+    successMessage += " Your account will be activated after email verification and local government approval."
+  } else if (userType === "social_project") {
+    successMessage += " Your account is ready to use immediately after email verification."
+  }
+
   ResponseHelper.success(
     res,
     {
       user,
-      message:
-        "Registration successful! Please check your email for the 6-digit verification code. Your account will be activated after email verification and local government approval.",
+      message: successMessage,
     },
     "User registered successfully",
     201,
