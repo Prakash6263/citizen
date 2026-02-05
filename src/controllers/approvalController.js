@@ -318,9 +318,16 @@ const processApprovalDecision = asyncHandler(async (req, res) => {
   } else if (type === "citizen" || type === "social_project") {
     // Handle both citizen and social_project approvals
     if (decision === "approved") {
-      await User.findByIdAndUpdate(applicant._id, {
+      const updateData = {
         isGovernmentApproved: true,
-      });
+      };
+      
+      // For social_project, also set isRegistrationProjectDone to true
+      if (type === "social_project") {
+        updateData.isRegistrationProjectDone = true;
+      }
+      
+      await User.findByIdAndUpdate(applicant._id, updateData);
     } else {
       // On rejection, keep isGovernmentApproved as false
       await User.findByIdAndUpdate(applicant._id, {
