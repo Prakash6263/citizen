@@ -318,6 +318,10 @@ const login = asyncHandler(async (req, res) => {
       user: user._id,
     })
 
+    // isProjectRegistration: true if user has completed project registration (has a record)
+    responseData.isProjectRegistration = !!projectRegistration
+
+    // isGovernmentApproveAccount: true only if government approved the registration
     responseData.isGovernmentApproveAccount =
       projectRegistration?.status === "approved"
   }
