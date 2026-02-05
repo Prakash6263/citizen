@@ -30,8 +30,6 @@ function buildUsername(base) {
 const getPendingApprovals = asyncHandler(async (req, res) => {
   const { type, status, page = 1, limit = 10 } = req.query;
 
-  console.log("[v0] getPendingApprovals called with:", { type, status, page, limit, userId: req.user._id, userType: req.user.userType });
-
   const filter = {};
 
   // 1️⃣ Application type filter
@@ -58,8 +56,6 @@ const getPendingApprovals = asyncHandler(async (req, res) => {
     }
   }
 
-  console.log("[v0] Query filter:", filter);
-
   // 3️⃣ Get government city if logged-in user is government (not superadmin)
   let govCity = null;
   if (req.user.userType === "government" && req.user.role !== "superadmin") {
@@ -83,7 +79,7 @@ const getPendingApprovals = asyncHandler(async (req, res) => {
     .limit(Number(limit))
     .lean();
 
-  console.log("[v0] Found approvals:", approvals.length);
+  const populatedApprovals = [];
 
   for (const approval of approvals) {
     const applicantCity = approval.city?.trim().toLowerCase();
@@ -127,8 +123,6 @@ const getPendingApprovals = asyncHandler(async (req, res) => {
   }
 
   const total = populatedApprovals.length;
-  
-  console.log("[v0] Returning approvals response:", { count: populatedApprovals.length, total });
  
   return successResponse(res, "Pending approvals retrieved successfully", {
     approvals: populatedApprovals,
