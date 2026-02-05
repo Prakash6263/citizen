@@ -86,8 +86,30 @@ const getPendingApprovals = asyncHandler(async (req, res) => {
       }
     }
 
+    // 5️⃣ Populate government data for government applicant types
+    let populatedApproval = { ...approval };
+
+    if (approval.applicationType === "government" && approval.applicantModel === "Government") {
+      try {
+        const government = await Government.findById(approval.applicantId).lean();
+        if (government) {
+          populatedApproval.applicantData = {
+            governmentName: government.governmentName,
+            entityType: government.entityType,
+            country: government.country,
+            province: government.province,
+            city: government.city,
+            representativeName: government.representativeName,
+            email: government.institutionalEmail,
+          };
+        }
+      } catch (error) {
+        console.error("Error fetching government data:", error.message);
+      }
+    }
+
     // Include approval if city matches or not restricted
-    populatedApprovals.push(approval);
+    populatedApprovals.push(populatedApproval);
   }
 
   const total = populatedApprovals.length;
