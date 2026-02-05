@@ -116,6 +116,26 @@ const getPendingApprovals = asyncHandler(async (req, res) => {
       } catch (error) {
         console.error("Error fetching government data:", error.message);
       }
+    } else if (approval.applicationType === "social_project" && approval.applicantModel === "User") {
+      // Populate social project user data
+      try {
+        const user = await User.findById(approval.applicantId).lean();
+        if (user) {
+          populatedApproval.applicantData = {
+            fullName: user.fullName,
+            email: user.email,
+            username: user.username,
+            userType: user.userType,
+            country: approval.country,
+            province: approval.province,
+            city: approval.city,
+            phone: user.phone,
+            accountCreatedAt: user.createdAt,
+          };
+        }
+      } catch (error) {
+        console.error("Error fetching social project user data:", error.message);
+      }
     }
 
     // Include approval if city matches or not restricted
