@@ -101,6 +101,7 @@ const submitSocialProjectRegistration = asyncHandler(async (req, res) => {
       ...registration.toObject(),
       isRegistrationProjectDone: false,
       isGovernmentApproveProject: true, // Auto-approved
+      isProjectRegistration: registration.projects && registration.projects.length > 0, // true if user has already created projects
     }
 
     successResponse(
@@ -129,7 +130,12 @@ const getMyRegistration = asyncHandler(async (req, res) => {
     return errorResponse(res, "No registration found", 404)
   }
 
-  successResponse(res, "Social project registration retrieved successfully", registration)
+  const responseData = {
+    ...registration.toObject(),
+    isProjectRegistration: registration.projects && registration.projects.length > 0, // true if user has already created projects
+  }
+
+  successResponse(res, "Social project registration retrieved successfully", responseData)
 })
 
 // @desc    Get all projects
