@@ -82,38 +82,22 @@ const register = asyncHandler(async (req, res) => {
     severity: "low",
   })
 
-  // Create RegistrationApproval for citizens (pending) and social_project (auto-approved)
+  // Create RegistrationApproval only for social_project (citizens don't need approval)
   const RegistrationApproval = require("../models/RegistrationApproval")
   const Government = require("../models/Government")
 
-  if (userType === "citizen") {
-    const approvalStatus = "pending" // Always pending until government manually approves
-
+  if (userType === "social_project") {
+    // PENDING approval for social project account registration
     const approval = await RegistrationApproval.create({
-      applicationType: userType, // "citizen"
+      applicationType: userType, // "social_project"
       applicantId: user._id,
       applicantModel: "User",
-      status: approvalStatus,
+      status: "pending", // Pending government approval
       submittedAt: new Date(),
       country: country,
       province: province,
       city: city,
       // Do NOT set reviewedBy, reviewedAt, or approvalDecision - only government can set these
-    })
-  } else if (userType === "social_project") {
-    // AUTO-APPROVED for social project account registration
-    const approval = await RegistrationApproval.create({
-      applicationType: userType, // "social_project"
-      applicantId: user._id,
-      applicantModel: "User",
-      status: "approved", // Auto-approved
-      approvalDecision: "approved",
-      reviewedBy: user._id,
-      reviewedAt: new Date(),
-      submittedAt: new Date(),
-      country: country,
-      province: province,
-      city: city,
     })
   }
 
@@ -123,9 +107,9 @@ const register = asyncHandler(async (req, res) => {
   // Customize success message based on user type
   let successMessage = "Registration successful! Please check your email for the 6-digit verification code."
   if (userType === "citizen") {
-    successMessage += " Your account will be activated after email verification and local government approval."
-  } else if (userType === "social_project") {
     successMessage += " Your account is ready to use immediately after email verification."
+  } else if (userType === "social_project") {
+    successMessage += " Your account will be activated after email verification and local government approval."
   }
 
   ResponseHelper.success(
@@ -323,12 +307,17 @@ const login = asyncHandler(async (req, res) => {
       user: user._id,
     })
 
-    // isRegistrationProjectDone: true if user has completed project registration (has a record)
+    // isRegistrationProjectDone: true if user has submitted project registration (has a record)
     responseData.isRegistrationProjectDone = !!projectRegistration
 
-    // isGovernmentApproveAccount: true only if government approved the registration
-    responseData.isGovernmentApproveAccount =
-      projectRegistration?.status === "approved"
+    // isGovernmentApproveAccount: true only if government approved the account registration
+    const approval = await RegistrationApproval.findOne({
+      applicantId: user._id,
+      applicantModel: "User",
+      applicationType: "social_project",
+    })
+
+    responseData.isGovernmentApproveAccount = approval?.status === "approved"
   }
 
   return ResponseHelper.success(res, responseData, "Login successful")

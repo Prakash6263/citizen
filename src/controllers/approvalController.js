@@ -44,7 +44,17 @@ const getPendingApprovals = asyncHandler(async (req, res) => {
   }
 
   // 2️⃣ Status filter
-  filter.status = status ? status : { $in: ["pending", "under_review"] };
+  if (status) {
+    filter.status = status;
+  } else {
+    // For social_project, include all statuses (pending and approved)
+    // For others, only show pending and under_review
+    if (type && String(type).trim().toLowerCase() === "social_project") {
+      filter.status = { $in: ["pending", "under_review", "approved"] };
+    } else {
+      filter.status = { $in: ["pending", "under_review"] };
+    }
+  }
 
   // 3️⃣ Get government city if logged-in user is government (not superadmin)
   let govCity = null;
