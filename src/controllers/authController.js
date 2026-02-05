@@ -141,20 +141,6 @@ const login = asyncHandler(async (req, res) => {
   const ip = req.ip
   const userAgent = req.get("User-Agent")
 
-  // Check rate limiting
-  // const isRateLimited = await LoginAttempt.isRateLimited(identifier, ip)
-  // if (isRateLimited) {
-  //   await LoginAttempt.logAttempt({
-  //     identifier,
-  //     ip,
-  //     userAgent,
-  //     success: false,
-  //     failureReason: "too_many_attempts",
-  //   })
-
-  //   return ResponseHelper.error(res, "Too many login attempts. Please try again later.", 429)
-  // }
-
   // Find user by email or username
   const user = await User.findByEmailOrUsername(identifier).select("+password")
 
@@ -166,7 +152,6 @@ const login = asyncHandler(async (req, res) => {
       success: false,
       failureReason: "invalid_credentials",
     })
-
     return ResponseHelper.error(res, "Invalid credentials", 401)
   }
 
@@ -180,21 +165,18 @@ const login = asyncHandler(async (req, res) => {
       failureReason: "account_inactive",
       user: user._id,
     })
-
     return ResponseHelper.error(res, "Account is deactivated. Please contact support.", 401)
   }
 
-  console.log("[v0] Login attempt - User details:", {
+  console.log("[Login] User:", {
     userId: user._id,
-    email: user.email,
     userType: user.userType,
     isGovernmentApproved: user.isGovernmentApproved,
     isEmailVerified: user.isEmailVerified,
   })
 
-  // Check email verification FIRST
+  // ✅ Email verification check (sab ke liye common)
   if (!user.isEmailVerified) {
-    console.log("[v0] Email not verified:", user._id, user.email)
     await LoginAttempt.logAttempt({
       identifier,
       ip,
@@ -206,17 +188,19 @@ const login = asyncHandler(async (req, res) => {
 
     return ResponseHelper.error(
       res,
-      "Please verify your email address before logging in. Check your inbox for the verification code.",
-      401,
+      "Please verify your email address before logging in.",
+      401
     )
   }
 
-  if ((user.userType === "citizen" || user.userType === "social_project") && !user.isGovernmentApproved) {
-    console.log("[v0] Login blocked - government approval pending:", {
-      userId: user._id,
-      userType: user.userType,
-      isGovernmentApproved: user.isGovernmentApproved,
-    })
+  /**
+   * ✅ GOVERNMENT APPROVAL LOGIC (UPDATED)
+   * - citizen  → skip approval
+   * - social_project → approval required
+   */
+  if (user.userType === "social_project" && !user.isGovernmentApproved) {
+    console.log("[Login Blocked] Social project approval pending:", user._id)
+
     await LoginAttempt.logAttempt({
       identifier,
       ip,
@@ -226,16 +210,19 @@ const login = asyncHandler(async (req, res) => {
       user: user._id,
     })
 
-    const message =
-      user.userType === "citizen"
-        ? "Your account is pending approval from your local government. Email has been verified, but you need approval from your local government office to login."
-        : "Your social project account is pending approval from your local government. Email has been verified, but you need approval from your local government office to login."
-
-    return ResponseHelper.error(res, message, 200)
+    return ResponseHelper.error(
+      res,
+      "Your social project account is pending government approval. Please wait for approval.",
+      200
+    )
   }
 
-  // Block government users from logging in until superadmin verifies
-  if (user.userType === "government" && user.role !== "superadmin" && user.isSuperAdminVerified !== true) {
+  // ❌ Government users – superadmin verification required
+  if (
+    user.userType === "government" &&
+    user.role !== "superadmin" &&
+    user.isSuperAdminVerified !== true
+  ) {
     await LoginAttempt.logAttempt({
       identifier,
       ip,
@@ -244,9 +231,15 @@ const login = asyncHandler(async (req, res) => {
       failureReason: "superadmin_not_verified",
       user: user._id,
     })
-    return ResponseHelper.error(res, "Your account is pending super admin verification. Please try again later.", 401)
+
+    return ResponseHelper.error(
+      res,
+      "Your account is pending super admin verification.",
+      401
+    )
   }
 
+  // Password check
   const isMatch = await user.matchPassword(password)
   if (!isMatch) {
     await LoginAttempt.logAttempt({
@@ -261,7 +254,7 @@ const login = asyncHandler(async (req, res) => {
     return ResponseHelper.error(res, "Invalid credentials", 401)
   }
 
-  // Log successful login attempt
+  // ✅ Successful login attempt
   await LoginAttempt.logAttempt({
     identifier,
     ip,
@@ -270,13 +263,13 @@ const login = asyncHandler(async (req, res) => {
     user: user._id,
   })
 
-  // Update user login info
+  // Update login info
   user.lastLogin = new Date()
   user.loginCount += 1
   user.lastLoginIP = ip
   await user.save({ validateBeforeSave: false })
 
-  // Log audit trail
+  // Audit log
   await AuditLog.logAction({
     user: user._id,
     action: "login",
@@ -286,11 +279,10 @@ const login = asyncHandler(async (req, res) => {
     severity: "low",
   })
 
-  // Generate tokens
+  // Tokens
   const token = user.getSignedJwtToken()
   const refreshToken = user.getRefreshToken()
 
-  // Save refresh token
   await RefreshToken.create({
     token: refreshToken,
     user: user._id,
@@ -301,7 +293,6 @@ const login = asyncHandler(async (req, res) => {
     },
   })
 
-  // Remove password from response
   user.password = undefined
 
   const responseData = {
@@ -310,20 +301,23 @@ const login = asyncHandler(async (req, res) => {
     refreshToken,
   }
 
+  // Extra data for social project
   if (user.userType === "social_project") {
-    const RegistrationApproval = require("../models/RegistrationApproval")
     const SocialProjectRegistration = require("../models/SocialProjectRegistration")
 
     responseData.isRegistrationProjectDone = user.isRegistrationProjectDone || false
 
-    const projectRegistration = await SocialProjectRegistration.findOne({ user: user._id })
+    const projectRegistration = await SocialProjectRegistration.findOne({
+      user: user._id,
+    })
 
-    // If registration exists and is approved, then government approval is considered done
-    responseData.isGovernmentApproveProject = projectRegistration ? projectRegistration.status === "approved" : false
+    responseData.isGovernmentApproveProject =
+      projectRegistration?.status === "approved"
   }
 
-  ResponseHelper.success(res, responseData, "Login successful")
+  return ResponseHelper.success(res, responseData, "Login successful")
 })
+
 
 /**
  * @desc    Logout user

@@ -167,7 +167,9 @@ const updateGovernmentProfile = asyncHandler(async (req, res) => {
 // @route   GET /api/government/registrations/citizens
 // @access  Private (government)
 const getPendingCitizenRegistrations = asyncHandler(async (req, res) => {
+  console.log("getPendingCitizenRegistrations API")
   const government = await Government.findOne({ userId: req.user._id })
+  console.log("government",government)
   if (!government) {
     return errorResponse(res, "Government profile not found", 404)
   }
@@ -545,6 +547,7 @@ const rejectSocialProjectRegistration = asyncHandler(async (req, res) => {
 // @route   GET /api/government/token-claims
 // @access  Private (government)
 const getPendingTokenClaims = asyncHandler(async (req, res) => {
+  
   const government = await Government.findOne({ userId: req.user._id })
   if (!government) return errorResponse(res, "Government profile not found", 404)
 
@@ -578,6 +581,7 @@ const getPendingTokenClaims = asyncHandler(async (req, res) => {
 // @route   POST /api/government/token-claims/:claimId/approve
 // @access  Private (government)
 const approveTokenClaim = asyncHandler(async (req, res) => {
+
   const { claimId } = req.params
   const { reviewNotes } = req.body
 
@@ -647,6 +651,7 @@ const approveTokenClaim = asyncHandler(async (req, res) => {
 // @route   POST /api/government/token-claims/:claimId/reject
 // @access  Private (government)
 const rejectTokenClaim = asyncHandler(async (req, res) => {
+    console.log("Reject-TokenClaim")
   const { claimId } = req.params
   const { rejectionReason, reviewNotes } = req.body
 
@@ -1020,10 +1025,11 @@ const getPendingTokenRequests = asyncHandler(async (req, res) => {
     return errorResponse(res, "Government profile not found", 404)
   }
 
-  const filter = {
-    city: government.city,
-    status: status || "pending",
-  }
+const filter = {
+  city: { $regex: `^${government.city}$`, $options: "i" },
+  status: status || "pending",
+};
+
 
   const tokenRequests = await TokenRequest.find(filter)
     .populate("requestedBy", "fullName email username city")

@@ -43,7 +43,7 @@ const supportProject = asyncHandler(async (req, res) => {
   }
 
   // Check if project is active
-  if (project.status !== "active") {
+  if (project.projectStatus !== "active") {
     return errorResponse(res, "Project is not active", 400)
   }
 
@@ -52,6 +52,7 @@ const supportProject = asyncHandler(async (req, res) => {
 
   if (existingSupport) {
     const totalTokens = existingSupport.tokensSpent + tokensToSpend
+   
     if (totalTokens > 5) {
       return errorResponse(
         res,
