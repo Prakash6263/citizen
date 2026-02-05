@@ -92,17 +92,7 @@ const submitSocialProjectRegistration = asyncHandler(async (req, res) => {
     status: "pending", // Pending government approval for PROJECT REGISTRATION
   })
 
-  // Create RegistrationApproval for government to review PROJECT REGISTRATION
-  await RegistrationApproval.create({
-    applicationType: "social_project",
-    applicantId: registration._id,
-    applicantModel: "SocialProjectRegistration",
-    status: "pending", // Waiting for government approval
-    submittedAt: new Date(),
-    country: country,
-    province: state,
-    city: city,
-  })
+  // NO RegistrationApproval for project registration - government approves directly on SocialProjectRegistration
 
   if (registration) {
     const responseData = {
