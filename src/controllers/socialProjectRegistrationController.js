@@ -89,21 +89,15 @@ const submitSocialProjectRegistration = asyncHandler(async (req, res) => {
     emailAddress,
     documents,
     registrationNotes,
-    status: "approved", // Auto-approved for social projects (no government approval needed)
-    approvedBy: req.user._id, // Self-approved
-    approvedAt: new Date(),
+    status: "pending", // Pending government approval for PROJECT REGISTRATION
   })
 
-  // Create RegistrationApproval for government review (auto-approved but government can still see it)
-  const RegistrationApproval = require("../models/RegistrationApproval")
+  // Create RegistrationApproval for government to review PROJECT REGISTRATION
   await RegistrationApproval.create({
     applicationType: "social_project",
     applicantId: registration._id,
     applicantModel: "SocialProjectRegistration",
-    status: "approved", // Auto-approved
-    approvalDecision: "approved",
-    reviewedBy: req.user._id,
-    reviewedAt: new Date(),
+    status: "pending", // Waiting for government approval
     submittedAt: new Date(),
     country: country,
     province: state,
@@ -113,13 +107,13 @@ const submitSocialProjectRegistration = asyncHandler(async (req, res) => {
   if (registration) {
     const responseData = {
       ...registration.toObject(),
-      isRegistrationProjectDone: true, // User has completed project registration
-      isGovernmentApproveAccount: true, // Auto-approved for social projects
+      isRegistrationProjectDone: true, // User submitted project registration
+      isGovernmentApproveAccount: true, // Account already auto-approved during signup
     }
 
     successResponse(
       res,
-      "Social project registration approved successfully. You can now create projects.",
+      "Social project registration submitted. Awaiting government approval to create projects.",
       responseData,
       201,
     )
@@ -145,8 +139,8 @@ const getMyRegistration = asyncHandler(async (req, res) => {
 
   const responseData = {
     ...registration.toObject(),
-    isRegistrationProjectDone: true, // User has completed project registration
-    isGovernmentApproveAccount: registration.status === "approved", // true if government approved
+    isRegistrationProjectDone: true, // User has submitted project registration
+    isGovernmentApproveAccount: registration.status === "approved", // true if government approved project registration
   }
 
   successResponse(res, "Social project registration retrieved successfully", responseData)
