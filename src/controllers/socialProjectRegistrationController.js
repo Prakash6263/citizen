@@ -89,31 +89,24 @@ const submitSocialProjectRegistration = asyncHandler(async (req, res) => {
     emailAddress,
     documents,
     registrationNotes,
-    status: "pending", // Pending government approval
+    status: "approved", // Auto-approved for social projects (no government approval needed)
+    approvedBy: req.user._id, // Self-approved
+    approvedAt: new Date(),
   })
 
-  // Create RegistrationApproval for government to review
-  await RegistrationApproval.create({
-    applicationType: "social_project",
-    applicantId: registration._id,
-    applicantModel: "SocialProjectRegistration",
-    status: "pending", // Waiting for government approval
-    submittedAt: new Date(),
-    country: country,
-    province: state,
-    city: city,
-  })
+  // Note: No RegistrationApproval created for social_project users - they are auto-approved
 
   if (registration) {
     const responseData = {
       ...registration.toObject(),
       isRegistrationProjectDone: false,
-      isGovernmentApproveProject: false, // Pending government approval
+      isGovernmentApproveProject: true, // Auto-approved
+      isProjectRegistration: true, // User has just completed project registration
     }
 
     successResponse(
       res,
-      "Social project registration submitted successfully. Awaiting government approval.",
+      "Social project registration approved successfully. You can now create projects.",
       responseData,
       201,
     )
@@ -137,7 +130,12 @@ const getMyRegistration = asyncHandler(async (req, res) => {
     return errorResponse(res, "No registration found", 404)
   }
 
-  successResponse(res, "Social project registration retrieved successfully", registration)
+  const responseData = {
+    ...registration.toObject(),
+    isProjectRegistration: true, // User has completed project registration
+  }
+
+  successResponse(res, "Social project registration retrieved successfully", responseData)
 })
 
 // @desc    Get all projects
