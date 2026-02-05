@@ -278,13 +278,14 @@ const createProject = asyncHandler(async (req, res) => {
     return errorResponse(res, "Only social project users can create projects", 403)
   }
 
+  // Get user's social project registration (if exists)
   const registration = await SocialProjectRegistration.findOne({
     user: req.user._id,
-    status: "approved",
   })
 
+  // Check if user has submitted project registration (isRegistrationProjectDone)
   if (!registration) {
-    return errorResponse(res, "You must have an approved registration to create projects", 403)
+    return errorResponse(res, "You must submit a project registration first before creating projects", 403)
   }
 
   const {
@@ -301,7 +302,8 @@ const createProject = asyncHandler(async (req, res) => {
     fundingGoal, // Accept funding goal from frontend
   } = req.body
 
-  if (!registration.allowedProjectTypes.includes(projectType)) {
+  // Check if user is allowed to create this project type (if registration exists)
+  if (registration && registration.allowedProjectTypes && !registration.allowedProjectTypes.includes(projectType)) {
     return errorResponse(
       res,
       `You are not authorized to create projects of type "${projectType}". Allowed types: ${registration.allowedProjectTypes.join(", ")}`,
