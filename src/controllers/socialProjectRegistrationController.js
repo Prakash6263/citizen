@@ -99,8 +99,7 @@ const submitSocialProjectRegistration = asyncHandler(async (req, res) => {
   if (registration) {
     const responseData = {
       ...registration.toObject(),
-      isRegistrationProjectDone: false,
-      isProjectRegistration: true, // User has completed project registration
+      isRegistrationProjectDone: true, // User has completed project registration
       isGovernmentApproveAccount: true, // Auto-approved for social projects
     }
 
@@ -132,7 +131,7 @@ const getMyRegistration = asyncHandler(async (req, res) => {
 
   const responseData = {
     ...registration.toObject(),
-    isProjectRegistration: true, // User has completed project registration
+    isRegistrationProjectDone: true, // User has completed project registration
     isGovernmentApproveAccount: registration.status === "approved", // true if government approved
   }
 
