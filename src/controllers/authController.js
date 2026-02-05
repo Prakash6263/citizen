@@ -311,14 +311,8 @@ const login = asyncHandler(async (req, res) => {
     // isRegistrationProjectDone: true if user has submitted project registration (has a record)
     responseData.isRegistrationProjectDone = !!projectRegistration
 
-    // isGovernmentApproveAccount: true only if government approved the account registration
-    const approval = await RegistrationApproval.findOne({
-      applicantId: user._id,
-      applicantModel: "User",
-      applicationType: "social_project",
-    })
-
-    responseData.isGovernmentApproveAccount = approval?.status === "approved"
+    // isGovernmentApproveAccount: use the isGovernmentApproved field from User model directly
+    responseData.isGovernmentApproveAccount = user.isGovernmentApproved || false
   }
 
   return ResponseHelper.success(res, responseData, "Login successful")
