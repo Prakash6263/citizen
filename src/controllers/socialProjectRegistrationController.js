@@ -98,7 +98,7 @@ const submitSocialProjectRegistration = asyncHandler(async (req, res) => {
     const responseData = {
       ...registration.toObject(),
       isRegistrationProjectDone: true, // User submitted project registration
-      isGovernmentApproveAccount: true, // Account already auto-approved during signup
+      isGovernmentApproveAccount: false, // Account approval is separate, not auto-approved
     }
 
     successResponse(

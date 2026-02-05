@@ -101,19 +101,17 @@ const register = asyncHandler(async (req, res) => {
       // Do NOT set reviewedBy, reviewedAt, or approvalDecision - only government can set these
     })
   } else if (userType === "social_project") {
-    // AUTO-APPROVED for social project account registration
+    // PENDING approval for social project account registration
     const approval = await RegistrationApproval.create({
       applicationType: userType, // "social_project"
       applicantId: user._id,
       applicantModel: "User",
-      status: "approved", // Auto-approved
-      approvalDecision: "approved",
-      reviewedBy: user._id,
-      reviewedAt: new Date(),
+      status: "pending", // Pending government approval
       submittedAt: new Date(),
       country: country,
       province: province,
       city: city,
+      // Do NOT set reviewedBy, reviewedAt, or approvalDecision - only government can set these
     })
   }
 
@@ -125,7 +123,7 @@ const register = asyncHandler(async (req, res) => {
   if (userType === "citizen") {
     successMessage += " Your account will be activated after email verification and local government approval."
   } else if (userType === "social_project") {
-    successMessage += " Your account is ready to use immediately after email verification."
+    successMessage += " Your account will be activated after email verification and local government approval."
   }
 
   ResponseHelper.success(
@@ -323,12 +321,17 @@ const login = asyncHandler(async (req, res) => {
       user: user._id,
     })
 
-    // isRegistrationProjectDone: true if user has completed project registration (has a record)
+    // isRegistrationProjectDone: true if user has submitted project registration (has a record)
     responseData.isRegistrationProjectDone = !!projectRegistration
 
-    // isGovernmentApproveAccount: true only if government approved the registration
-    responseData.isGovernmentApproveAccount =
-      projectRegistration?.status === "approved"
+    // isGovernmentApproveAccount: true only if government approved the account registration
+    const approval = await RegistrationApproval.findOne({
+      applicantId: user._id,
+      applicantModel: "User",
+      applicationType: "social_project",
+    })
+
+    responseData.isGovernmentApproveAccount = approval?.status === "approved"
   }
 
   return ResponseHelper.success(res, responseData, "Login successful")
