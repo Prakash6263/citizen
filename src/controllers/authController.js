@@ -82,19 +82,11 @@ const register = asyncHandler(async (req, res) => {
     severity: "low",
   })
 
-  // Create RegistrationApproval for citizens only (social_project users don't need approval)
+  // Create RegistrationApproval for citizens (pending) and social_project (auto-approved)
+  const RegistrationApproval = require("../models/RegistrationApproval")
+  const Government = require("../models/Government")
+
   if (userType === "citizen") {
-    const RegistrationApproval = require("../models/RegistrationApproval")
-    const Government = require("../models/Government")
-
-    const government = await Government.findOne({
-      city: city,
-      province: province,
-      country: country,
-      status: "approved",
-      isSuperAdminVerified: true,
-    })
-
     const approvalStatus = "pending" // Always pending until government manually approves
 
     const approval = await RegistrationApproval.create({
@@ -107,6 +99,21 @@ const register = asyncHandler(async (req, res) => {
       province: province,
       city: city,
       // Do NOT set reviewedBy, reviewedAt, or approvalDecision - only government can set these
+    })
+  } else if (userType === "social_project") {
+    // AUTO-APPROVED for social project account registration
+    const approval = await RegistrationApproval.create({
+      applicationType: userType, // "social_project"
+      applicantId: user._id,
+      applicantModel: "User",
+      status: "approved", // Auto-approved
+      approvalDecision: "approved",
+      reviewedBy: user._id,
+      reviewedAt: new Date(),
+      submittedAt: new Date(),
+      country: country,
+      province: province,
+      city: city,
     })
   }
 
