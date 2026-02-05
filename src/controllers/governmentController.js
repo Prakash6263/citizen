@@ -438,7 +438,7 @@ const approveSocialProjectRegistration = asyncHandler(async (req, res) => {
   // Update user's registration status
   await User.findByIdAndUpdate(project.user, {
     isRegistrationProjectDone: true,
-    isGovernmentApproveProject: true,
+    isGovernmentApproveAccount: true,
   })
 
   // Update all projects under this registration to be visible in this city

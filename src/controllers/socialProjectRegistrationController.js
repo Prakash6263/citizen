@@ -100,8 +100,7 @@ const submitSocialProjectRegistration = asyncHandler(async (req, res) => {
     const responseData = {
       ...registration.toObject(),
       isRegistrationProjectDone: false,
-      isGovernmentApproveProject: true, // Auto-approved
-      isProjectRegistration: true, // User has just completed project registration
+      isGovernmentApproveAccount: true, // Auto-approved
     }
 
     successResponse(
@@ -132,7 +131,6 @@ const getMyRegistration = asyncHandler(async (req, res) => {
 
   const responseData = {
     ...registration.toObject(),
-    isProjectRegistration: true, // User has completed project registration
   }
 
   successResponse(res, "Social project registration retrieved successfully", responseData)
