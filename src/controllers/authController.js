@@ -320,6 +320,10 @@ const login = asyncHandler(async (req, res) => {
 
     responseData.isGovernmentApproveProject =
       projectRegistration?.status === "approved"
+
+    // Add isProjectRegistration flag
+    responseData.isProjectRegistration =
+      projectRegistration && projectRegistration.projects && projectRegistration.projects.length > 0
   }
 
   return ResponseHelper.success(res, responseData, "Login successful")
