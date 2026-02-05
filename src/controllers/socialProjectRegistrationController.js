@@ -94,7 +94,21 @@ const submitSocialProjectRegistration = asyncHandler(async (req, res) => {
     approvedAt: new Date(),
   })
 
-  // Note: No RegistrationApproval created for social_project users - they are auto-approved
+  // Create RegistrationApproval for government review (auto-approved but government can still see it)
+  const RegistrationApproval = require("../models/RegistrationApproval")
+  await RegistrationApproval.create({
+    applicationType: "social_project",
+    applicantId: registration._id,
+    applicantModel: "SocialProjectRegistration",
+    status: "approved", // Auto-approved
+    approvalDecision: "approved",
+    reviewedBy: req.user._id,
+    reviewedAt: new Date(),
+    submittedAt: new Date(),
+    country: country,
+    province: state,
+    city: city,
+  })
 
   if (registration) {
     const responseData = {
