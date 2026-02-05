@@ -278,15 +278,15 @@ const createProject = asyncHandler(async (req, res) => {
     return errorResponse(res, "Only social project users can create projects", 403)
   }
 
-  // Check if user account is approved by government (not project registration approval)
-  if (!req.user.isGovernmentApproved) {
-    return errorResponse(res, "Your account must be approved by government to create projects", 403)
-  }
-
   // Get user's social project registration (if exists)
   const registration = await SocialProjectRegistration.findOne({
     user: req.user._id,
   })
+
+  // Check if user has submitted project registration (isRegistrationProjectDone)
+  if (!registration) {
+    return errorResponse(res, "You must submit a project registration first before creating projects", 403)
+  }
 
   const {
     projectTitle,
