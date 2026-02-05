@@ -141,7 +141,7 @@ app.get("/health", (req, res) => {
 
 // API routes - Core functionality
 app.use("/api/auth", authRoutes)
-app.use("/api/user", userRoutes)
+app.use("/api/users", userRoutes)
 app.use("/api/profile", profileRoutes)
 app.use("/api/comments", commentRoutes)
 app.use("/api/analytics", analyticsRoutes)

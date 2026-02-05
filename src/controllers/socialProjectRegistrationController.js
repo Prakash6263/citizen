@@ -452,6 +452,7 @@ const getRegistrationStats = asyncHandler(async (req, res) => {
 // @route   GET /api/social-projects/citizen/my-city
 // @access  Private (Citizen users only)
 const getApprovedProjectsByCity = asyncHandler(async (req, res) => {
+  console.log("aaaaaaa")
   if (req.user.userType !== "citizen") {
     return errorResponse(res, "Only citizen users can access this endpoint", 403)
   }
@@ -888,23 +889,26 @@ const getProjectFundingDetails = asyncHandler(async (req, res) => {
 // @route   PUT /api/social-projects/:projectId/update
 // @access  Private (Social Project users only - project owner)
 const updateProject = asyncHandler(async (req, res) => {
+    
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
     return errorResponse(res, "Validation failed", 400, errors.array())
   }
+
 
   if (req.user.userType !== "social_project") {
     return errorResponse(res, "Only social project users can update projects", 403)
   }
 
   const { projectId } = req.params
-  const { projectTitle, projectDescription } = req.body
+  const { projectTitle, projectDescription,documentation } = req.body
 
   const registration = await SocialProjectRegistration.findOne({
     user: req.user._id,
     "projects._id": projectId,
   })
-
+ 
+  // console.log("registration",registration)
   if (!registration) {
     return errorResponse(res, "Project not found or you don't have permission to update it", 404)
   }

@@ -88,11 +88,13 @@ router.put("/:projectId/approve", authorize("government"), socialProjectApproval
 // Submit registration (select project types)
 router.post(
   "/register",
+  protect,                 // 🔑 JWT verify
   authorize("social_project"),
   upload.array("documents", 5),
   socialProjectRegistrationValidation,
   submitSocialProjectRegistration,
 )
+
 
 // Get user's own registration
 router.get("/my-registration", authorize("social_project"), getMyRegistration)

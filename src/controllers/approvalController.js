@@ -1,204 +1,201 @@
-const RegistrationApproval = require("../models/RegistrationApproval")
-const Government = require("../models/Government")
-const User = require("../models/User")
-const { sendEmail } = require("../utils/emailService")
-const asyncHandler = require("../utils/asyncHandler")
-const { successResponse, errorResponse } = require("../utils/responseHelper")
+const RegistrationApproval = require("../models/RegistrationApproval");
+const Government = require("../models/Government");
+const User = require("../models/User");
+const { sendEmail } = require("../utils/emailService");
+const asyncHandler = require("../utils/asyncHandler");
+const { successResponse, errorResponse } = require("../utils/responseHelper");
 
 function generateStrongPassword() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*()-_=+[]{};:,.?"
-  let pwd = ""
+  const chars =
+    "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*()-_=+[]{};:,.?";
+  let pwd = "";
   for (let i = 0; i < 14; i++) {
-    pwd += chars.charAt(Math.floor(Math.random() * chars.length))
+    pwd += chars.charAt(Math.floor(Math.random() * chars.length));
   }
-  return pwd
+  return pwd;
 }
 
 function buildUsername(base) {
   const slug = base
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-  return slug.slice(0, 24)
+    .replace(/^_+|_+$/g, "");
+  return slug.slice(0, 24);
 }
 
 // @desc    Get pending registrations
 // @route   GET /api/admin/approvals
 // @access  Private (Admin only)
+
 const getPendingApprovals = asyncHandler(async (req, res) => {
-  const { type, status, page = 1, limit = 10 } = req.query
+  const { type, status, page = 1, limit = 10 } = req.query;
 
-  const filter = {}
+  const filter = {};
 
+  // 1️⃣ Application type filter
   if (type) {
-    const trimmed = String(type).trim().toLowerCase()
-    const modelName =
-      trimmed === "government" ? "government" : trimmed === "social_project" ? "social_project" : "citizen"
-    filter.applicationType = modelName
-
-    if (modelName === "government") {
-      const statusSet = status ? [status] : ["pending", "under_review"]
-
-      // Find all pending governments that don't have approval records yet
-      const pendingGovs = await Government.find({
-        status: { $in: statusSet },
-        isSuperAdminVerified: false, // Only fetch unverified governments
-      }).select("_id")
-
-      const pendingGovIds = pendingGovs.map((g) => g._id)
-
-      if (pendingGovIds.length > 0) {
-        // Find which governments already have approval records
-        const existingApprovals = await RegistrationApproval.find({
-          applicationType: "government",
-          applicantId: { $in: pendingGovIds },
-        }).select("applicantId")
-
-        const existingSet = new Set(existingApprovals.map((a) => String(a.applicantId)))
-        const missingIds = pendingGovIds.filter((id) => !existingSet.has(String(id)))
-
-        // Create approval records for governments that don't have one yet
-        if (missingIds.length > 0) {
-          await RegistrationApproval.insertMany(
-            missingIds.map((id) => ({
-              applicationType: "government",
-              applicantId: id,
-              applicantModel: "government",
-              status: "pending",
-              submittedAt: new Date(),
-            })),
-            { ordered: false },
-          ).catch((err) => {
-            // Ignore duplicate key errors
-            if (err.code !== 11000) throw err
-          })
-        }
-      }
-    }
+    const trimmed = String(type).trim().toLowerCase();
+    filter.applicationType =
+      trimmed === "government"
+        ? "government"
+        : trimmed === "social_project"
+        ? "social_project"
+        : "citizen";
   }
 
-  if (status) filter.status = status
-  else filter.status = { $in: ["pending", "under_review"] }
+  // 2️⃣ Status filter
+  filter.status = status ? status : { $in: ["pending", "under_review"] };
 
-  const query = RegistrationApproval.find(filter)
+  // 3️⃣ Get government city if logged-in user is government
+  let govCity = null;
+  if (req.user.userType === "government") {
+    const government = await Government.findOne({
+      userId: req.user._id,
+      isSuperAdminVerified: true,
+    }).lean();
+
+    if (!government || !government.city) {
+      return errorResponse(res, "Government profile or city not found", 404);
+    }
+
+    govCity = government.city.trim().toLowerCase();
+   
+  }
+
+  // 4️⃣ Fetch approvals from RegistrationApproval
+  const approvals = await RegistrationApproval.find(filter)
     .sort({ submittedAt: -1 })
-    .limit(Number(limit) * 1)
     .skip((Number(page) - 1) * Number(limit))
+    .limit(Number(limit))
+    .lean();
 
-  // Manually populate based on applicantModel for each document
-  const approvals = await query.exec()
-  const populatedApprovals = []
+  const populatedApprovals = [];
 
   for (const approval of approvals) {
-    let model = Government
-    if (approval.applicantModel === "User") model = User
-    else if (approval.applicantModel === "SocialProjectRegistration") {
-      const SocialProjectRegistration = require("../models/SocialProjectRegistration")
-      model = SocialProjectRegistration
+    const applicantCity = approval.city?.trim().toLowerCase();
+
+    // 🔐 Only include citizen & social_project where city matches government city
+    if (
+      req.user.userType === "government" &&
+      ["citizen", "social_project"].includes(approval.applicationType)
+    ) {
+      if (!applicantCity || applicantCity !== govCity) {
+        // console.log(`Skipping ${approval.applicantId} | city: ${approval.city}`);
+        continue; // Skip approvals where city does not match
+      }
     }
 
-    const applicant = await model
-      .findById(approval.applicantId)
-      .select(
-        "fullName email governmentName projectTitle status verificationStatus isSuperAdminVerified city province country",
-      )
-
-    populatedApprovals.push({
-      ...approval.toObject(),
-      applicantId: applicant || null,
-    })
+    // Include approval if city matches or not restricted
+    populatedApprovals.push(approval);
   }
 
-  const total = await RegistrationApproval.countDocuments(filter)
-
-  successResponse(res, "Pending approvals retrieved successfully", {
+  const total = populatedApprovals.length;
+ 
+  return successResponse(res, "Pending approvals retrieved successfully", {
     approvals: populatedApprovals,
     pagination: {
       current: Number(page),
       pages: Math.ceil(total / Number(limit)),
       total,
     },
-  })
-})
+  });
+});
+
+
+module.exports = { getPendingApprovals };
 
 // @desc    Get approval details
 // @route   GET /api/admin/approvals/:id
 // @access  Private (Admin only)
 const getApprovalDetails = asyncHandler(async (req, res) => {
-  const approval = await RegistrationApproval.findById(req.params.id)
+  const approval = await RegistrationApproval.findById(req.params.id);
 
   if (!approval) {
-    return errorResponse(res, "Approval record not found", 404)
+    return errorResponse(res, "Approval record not found", 404);
   }
 
-  let model = Government
-  if (approval.applicantModel === "User") model = User
+  let model = Government;
+  if (approval.applicantModel === "User") model = User;
   else if (approval.applicantModel === "SocialProjectRegistration") {
-    const SocialProjectRegistration = require("../models/SocialProjectRegistration")
-    model = SocialProjectRegistration
+    const SocialProjectRegistration = require("../models/SocialProjectRegistration");
+    model = SocialProjectRegistration;
   }
 
-  const applicant = await model.findById(approval.applicantId)
+  const applicant = await model.findById(approval.applicantId);
 
   const populatedApproval = {
     ...approval.toObject(),
     applicantId: applicant,
-  }
+  };
 
   // Populate reviewedBy
   if (approval.reviewedBy) {
-    const reviewer = await User.findById(approval.reviewedBy).select("fullName email")
-    populatedApproval.reviewedBy = reviewer
+    const reviewer = await User.findById(approval.reviewedBy).select(
+      "fullName email",
+    );
+    populatedApproval.reviewedBy = reviewer;
   }
 
   // Populate communicationLog.sentBy
   for (let i = 0; i < populatedApproval.communicationLog.length; i++) {
     if (populatedApproval.communicationLog[i].sentBy) {
-      const sender = await User.findById(populatedApproval.communicationLog[i].sentBy).select("fullName")
-      populatedApproval.communicationLog[i].sentBy = sender
+      const sender = await User.findById(
+        populatedApproval.communicationLog[i].sentBy,
+      ).select("fullName");
+      populatedApproval.communicationLog[i].sentBy = sender;
     }
   }
 
-  successResponse(res, "Approval details retrieved successfully", { approval: populatedApproval })
-})
+  successResponse(res, "Approval details retrieved successfully", {
+    approval: populatedApproval,
+  });
+});
 
 // @desc    Process approval decision
 // @route   PUT /api/admin/approvals/:id/decision
 // @access  Private (Admin only)
 const processApprovalDecision = asyncHandler(async (req, res) => {
-  const { decision } = req.body
+  const { decision } = req.body;
 
-  const approval = await RegistrationApproval.findById(req.params.id)
-  if (!approval) return errorResponse(res, "Approval record not found", 404)
+  const approval = await RegistrationApproval.findById(req.params.id);
+  if (!approval) return errorResponse(res, "Approval record not found", 404);
 
-  let model = Government
-  if (approval.applicantModel === "User") model = User
+  let model = Government;
+  if (approval.applicantModel === "User") model = User;
   else if (approval.applicantModel === "SocialProjectRegistration") {
-    const SocialProjectRegistration = require("../models/SocialProjectRegistration")
-    model = SocialProjectRegistration
+    const SocialProjectRegistration = require("../models/SocialProjectRegistration");
+    model = SocialProjectRegistration;
   }
 
-  const applicant = await model.findById(approval.applicantId)
+  const applicant = await model.findById(approval.applicantId);
 
   if (!applicant) {
-    return errorResponse(res, "Associated applicant record not found. The applicant may have been deleted.", 404)
+    return errorResponse(
+      res,
+      "Associated applicant record not found. The applicant may have been deleted.",
+      404,
+    );
   }
 
-  const type = (approval.applicationType || "").toString()
+  const type = (approval.applicationType || "").toString();
 
   // Only superadmin can approve/reject government registrations
   if (type === "government" && req.user.role !== "superadmin") {
-    return errorResponse(res, "Only superadmin can approve or reject government registrations", 403)
+    return errorResponse(
+      res,
+      "Only superadmin can approve or reject government registrations",
+      403,
+    );
   }
 
   // Update approval record
-  approval.status = decision === "approved" ? "approved" : "rejected"
-  approval.approvalDecision = decision
-  approval.reviewedBy = req.user._id
-  approval.reviewedAt = new Date()
-  await approval.save()
+  approval.status = decision === "approved" ? "approved" : "rejected";
+  approval.approvalDecision = decision;
+  approval.reviewedBy = req.user._id;
+  approval.reviewedAt = new Date();
+  await approval.save();
 
-  let updatedGovernment
+  let updatedGovernment;
   if (type === "government") {
     updatedGovernment = await Government.findByIdAndUpdate(
       applicant._id,
@@ -209,10 +206,10 @@ const processApprovalDecision = asyncHandler(async (req, res) => {
         ...(decision === "approved" ? { isSuperAdminVerified: true } : {}),
       },
       { new: true },
-    )
+    );
 
     if (!updatedGovernment) {
-      return errorResponse(res, "Government record not found", 404)
+      return errorResponse(res, "Government record not found", 404);
     }
 
     if (decision === "approved") {
@@ -221,15 +218,17 @@ const processApprovalDecision = asyncHandler(async (req, res) => {
           updatedGovernment.userId,
           { isSuperAdminVerified: true, isEmailVerified: true },
           { new: true },
-        )
+        );
       } else {
-        const generatedPassword = generateStrongPassword()
-        const baseUsername = buildUsername(updatedGovernment.governmentName || "gov")
-        let username = baseUsername
-        let i = 0
+        const generatedPassword = generateStrongPassword();
+        const baseUsername = buildUsername(
+          updatedGovernment.governmentName || "gov",
+        );
+        let username = baseUsername;
+        let i = 0;
         while (await User.findOne({ username })) {
-          i++
-          username = `${baseUsername}_${i}`.slice(0, 30)
+          i++;
+          username = `${baseUsername}_${i}`.slice(0, 30);
         }
 
         const targetUser = await User.create({
@@ -245,10 +244,10 @@ const processApprovalDecision = asyncHandler(async (req, res) => {
           agreedToPrivacy: true,
           isEmailVerified: true,
           isSuperAdminVerified: true,
-        })
+        });
 
-        updatedGovernment.userId = targetUser._id
-        await updatedGovernment.save({ validateBeforeSave: false })
+        updatedGovernment.userId = targetUser._id;
+        await updatedGovernment.save({ validateBeforeSave: false });
 
         await sendEmail({
           email: updatedGovernment.institutionalEmail,
@@ -260,7 +259,7 @@ const processApprovalDecision = asyncHandler(async (req, res) => {
             password: generatedPassword,
             loginUrl: `${process.env.FRONTEND_URL || ""}/login`,
           },
-        })
+        });
       }
     }
   } else if (type === "citizen" || type === "social_project") {
@@ -268,21 +267,23 @@ const processApprovalDecision = asyncHandler(async (req, res) => {
     if (decision === "approved") {
       await User.findByIdAndUpdate(applicant._id, {
         isGovernmentApproved: true,
-      })
+      });
     } else {
       // On rejection, keep isGovernmentApproved as false
       await User.findByIdAndUpdate(applicant._id, {
         isGovernmentApproved: false,
-      })
+      });
     }
   }
 
-  const applicantEmail = applicant.email || applicant.institutionalEmail
-  const applicantName = applicant.fullName || applicant.governmentName
+  const applicantEmail = applicant.email || applicant.institutionalEmail;
+  const applicantName = applicant.fullName || applicant.governmentName;
 
   if (applicantEmail) {
     const emailTemplate =
-      decision === "approved" ? `${approval.applicationType}Approved` : `${approval.applicationType}Rejected`
+      decision === "approved"
+        ? `${approval.applicationType}Approved`
+        : `${approval.applicationType}Rejected`;
 
     try {
       await sendEmail({
@@ -292,20 +293,23 @@ const processApprovalDecision = asyncHandler(async (req, res) => {
         data: {
           name: applicantName,
         },
-      })
+      });
     } catch (emailError) {
-      console.error("Email sending failed:", emailError.message)
+      console.error("Email sending failed:", emailError.message);
       // Don't fail the entire operation if email fails
     }
   }
 
-  const responseData = type === "government" ? { approval: approval, government: updatedGovernment } : { approval }
+  const responseData =
+    type === "government"
+      ? { approval: approval, government: updatedGovernment }
+      : { approval };
   return successResponse(
     res,
     `Registration ${decision === "approved" ? "approved" : "rejected"} successfully`,
     responseData,
-  )
-})
+  );
+});
 
 // @desc    Get approval statistics
 // @route   GET /api/admin/approvals/stats
@@ -333,21 +337,21 @@ const getApprovalStats = asyncHandler(async (req, res) => {
         total: { $sum: "$count" },
       },
     },
-  ])
+  ]);
 
   const pendingCount = await RegistrationApproval.countDocuments({
     status: { $in: ["pending", "under_review"] },
-  })
+  });
 
   successResponse(res, "Approval statistics retrieved successfully", {
     stats,
     pendingCount,
-  })
-})
+  });
+});
 
 module.exports = {
   getPendingApprovals,
   getApprovalDetails,
   processApprovalDecision,
   getApprovalStats,
-}
+};
