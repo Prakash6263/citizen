@@ -139,7 +139,7 @@ app.get("/health", (req, res) => {
   })
 })
 
-// API routes - Core functionalityg
+// API routes - Core functionality
 app.use("/api/auth", authRoutes)
 app.use("/api/user", userRoutes)
 app.use("/api/profile", profileRoutes)
