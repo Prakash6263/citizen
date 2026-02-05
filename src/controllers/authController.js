@@ -82,7 +82,7 @@ const register = asyncHandler(async (req, res) => {
     severity: "low",
   })
 
-  // Create RegistrationApproval for citizens (pending) and social_project (auto-approved)
+  // Create RegistrationApproval for both citizens and social_project (both pending government approval)
   const RegistrationApproval = require("../models/RegistrationApproval")
   const Government = require("../models/Government")
 
