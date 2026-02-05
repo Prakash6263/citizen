@@ -46,9 +46,9 @@ const getPendingApprovals = asyncHandler(async (req, res) => {
   // 2️⃣ Status filter
   filter.status = status ? status : { $in: ["pending", "under_review"] };
 
-  // 3️⃣ Get government city if logged-in user is government
+  // 3️⃣ Get government city if logged-in user is government (not superadmin)
   let govCity = null;
-  if (req.user.userType === "government") {
+  if (req.user.userType === "government" && req.user.role !== "superadmin") {
     const government = await Government.findOne({
       userId: req.user._id,
       isSuperAdminVerified: true,
@@ -74,9 +74,10 @@ const getPendingApprovals = asyncHandler(async (req, res) => {
   for (const approval of approvals) {
     const applicantCity = approval.city?.trim().toLowerCase();
 
-    // 🔐 Only include citizen & social_project where city matches government city
+    // 🔐 Only include citizen & social_project where city matches government city (but not for superadmin)
     if (
       req.user.userType === "government" &&
+      req.user.role !== "superadmin" &&
       ["citizen", "social_project"].includes(approval.applicationType)
     ) {
       if (!applicantCity || applicantCity !== govCity) {
