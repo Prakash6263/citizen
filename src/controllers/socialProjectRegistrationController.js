@@ -274,6 +274,8 @@ const createProject = asyncHandler(async (req, res) => {
     return errorResponse(res, "Validation failed", 400, errors.array())
   }
 
+  console.log("[v0] CREATE PROJECT - User:", req.user._id, "userType:", req.user.userType);
+
   if (req.user.userType !== "social_project") {
     return errorResponse(res, "Only social project users can create projects", 403)
   }
@@ -283,10 +285,15 @@ const createProject = asyncHandler(async (req, res) => {
     user: req.user._id,
   })
 
+  console.log("[v0] CREATE PROJECT - Found registration:", !!registration, registration ? { _id: registration._id, status: registration.status, projectCount: registration.projects.length } : null);
+
   // Check if user has submitted project registration (isRegistrationProjectDone)
   if (!registration) {
+    console.log("[v0] CREATE PROJECT - No registration found, returning error");
     return errorResponse(res, "You must submit a project registration first before creating projects", 403)
   }
+
+  console.log("[v0] CREATE PROJECT - Registration check passed, proceeding with project creation");
 
   const {
     projectTitle,
