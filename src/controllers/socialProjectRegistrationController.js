@@ -137,7 +137,7 @@ const getMyRegistration = asyncHandler(async (req, res) => {
   successResponse(res, "Social project registration retrieved successfully", responseData)
 })
 
-// @desc    Get all projects
+// @desc    Get all projects s
 // @route   GET /api/social-projects
 const getAllProjects = asyncHandler(async (req, res) => {
   const registrations = await SocialProjectRegistration.find().sort({ createdAt: -1 })
