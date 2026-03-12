@@ -435,9 +435,8 @@ const approveSocialProjectRegistration = asyncHandler(async (req, res) => {
     await approvalRecord.save()
   }
 
-  // Update user's registration status
+  // Update user's project approval status
   await User.findByIdAndUpdate(project.user, {
-    isRegistrationProjectDone: true,
     isGovernmentApproveProject: true,
   })
 

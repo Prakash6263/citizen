@@ -322,11 +322,6 @@ const processApprovalDecision = asyncHandler(async (req, res) => {
         isGovernmentApproved: true,
       };
       
-      // For social_project, also set isRegistrationProjectDone to true
-      if (type === "social_project") {
-        updateData.isRegistrationProjectDone = true;
-      }
-      
       await User.findByIdAndUpdate(applicant._id, updateData);
     } else {
       // On rejection, keep isGovernmentApproved as false
