@@ -199,11 +199,6 @@ const userSchema = new mongoose.Schema(
       default: 0,
     },
 
-    isGovernmentApproved: {
-      type: Boolean,
-      default: false,
-    },
-
     isRegistrationProjectDone: {
       type: Boolean,
       default: false,
@@ -226,8 +221,7 @@ userSchema.index({ username: 1 })
 userSchema.index({ userType: 1 })
 userSchema.index({ isActive: 1 })
 userSchema.index({ isSuperAdminVerified: 1 })
-userSchema.index({ isGovernmentApproved: 1 })
-userSchema.index({ isRegistrationProjectDone: 1 }) // Index new field
+userSchema.index({ isRegistrationProjectDone: 1 })
 userSchema.index({ createdAt: -1 })
 
 // Virtual for user's full profile URL

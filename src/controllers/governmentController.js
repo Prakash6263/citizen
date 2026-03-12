@@ -163,68 +163,18 @@ const updateGovernmentProfile = asyncHandler(async (req, res) => {
 
 // REGISTRATION REQUEST REVIEW
 
-// @desc    Get pending citizen registrations (city-scoped) – FIXED PROPERLY
+// @desc    Get pending citizen registrations (city-scoped) – CITIZENS DON'T NEED APPROVAL
 // @route   GET /api/government/registrations/citizens
 // @access  Private (government)
 const getPendingCitizenRegistrations = asyncHandler(async (req, res) => {
-  console.log("getPendingCitizenRegistrations API")
-  const government = await Government.findOne({ userId: req.user._id })
-  console.log("government",government)
-  if (!government) {
-    return errorResponse(res, "Government profile not found", 404)
-  }
-
-  const { page = 1, limit = 20, status = "pending" } = req.query
-  const skip = (page - 1) * limit
-
-  // 1️⃣ Fetch approval records (city isolation at DB level)
-  const approvals = await RegistrationApproval.find({
-    applicationType: "citizen",
-    status,
-    country: government.country,
-    province: government.province,
-    city: government.city,
-  })
-    .sort({ submittedAt: -1 })
-    .skip(skip)
-    .limit(Number(limit))
-    .lean()
-
-  // 2️⃣ MANUAL population (THIS IS THE FIX)
-  const results = []
-
-  for (const approval of approvals) {
-    const citizen = await User.findById(approval.applicantId)
-      .select("fullName email username city userType isGovernmentApproved isEmailVerified createdAt")
-      .lean()
-
-    if (
-      citizen &&
-      citizen.userType === "citizen" &&
-      citizen.isGovernmentApproved === false
-    ) {
-      results.push({
-        ...approval,
-        applicant: citizen,
-      })
-    }
-  }
-
-  // 3️⃣ Count for pagination
-  const total = await RegistrationApproval.countDocuments({
-    applicationType: "citizen",
-    status,
-    country: government.country,
-    province: government.province,
-    city: government.city,
-  })
-
-  return successResponse(res, "Citizen registrations retrieved", {
-    registrations: results,
+  // Citizens no longer need government approval - they are approved automatically on signup
+  // This endpoint is deprecated but kept for backward compatibility
+  return successResponse(res, "Citizen registrations: No pending approvals (auto-approved on signup)", {
+    registrations: [],
     pagination: {
-      page: Number(page),
-      limit: Number(limit),
-      total,
+      page: 1,
+      limit: 20,
+      total: 0,
     },
   })
 })
@@ -281,116 +231,7 @@ const getPendingSocialProjectRegistrations = asyncHandler(async (req, res) => {
   })
 })
 
-// @desc    Approve citizen registration
-// @route   POST /api/government/registrations/citizens/approve
-// @access  Private (Government)
-const approveCitizenRegistration = asyncHandler(async (req, res) => {
-  const { approvalId } = req.body
 
-  // 1️⃣ Validate input
-  if (!approvalId) {
-    return errorResponse(res, "approvalId is required", 400)
-  }
-
-  // 2️⃣ Get government profile
-  const government = await Government.findOne({ userId: req.user._id })
-  if (!government) {
-    return errorResponse(res, "Government profile not found", 404)
-  }
-
-  // 3️⃣ Get approval record
-  const approval = await RegistrationApproval.findById(approvalId)
-  if (!approval) {
-    return errorResponse(res, "Registration approval not found", 404)
-  }
-
-  // 4️⃣ Enforce city isolation (CRITICAL)
-  if (
-    approval.country !== government.country ||
-    approval.province !== government.province ||
-    approval.city !== government.city
-  ) {
-    return errorResponse(res, "You are not authorized to approve this citizen", 403)
-  }
-
-  // 5️⃣ Prevent double approval
-  if (approval.status !== "pending") {
-    return errorResponse(res, "This request has already been processed", 400)
-  }
-
-  // 6️⃣ Get citizen user
-  const citizen = await User.findById(approval.applicantId)
-  if (!citizen || citizen.userType !== "citizen") {
-    return errorResponse(res, "Citizen not found", 404)
-  }
-
-  // 7️⃣ Approve registration
-  approval.status = "approved"
-  approval.reviewedBy = req.user._id
-  approval.reviewedAt = new Date()
-  approval.approvalDecision = "approved"
-  await approval.save()
-
-  // 8️⃣ Approve citizen account
-  citizen.isGovernmentApproved = true
-  await citizen.save()
-
-  // 9️⃣ Success response
-  return successResponse(res, "Citizen approved successfully", {
-    approvalId: approval._id,
-    citizenId: citizen._id,
-    citizenName: citizen.fullName,
-  })
-})
-
-// @desc    Reject citizen registration
-// @route   POST /api/government/registrations/citizens/:registrationId/reject
-// @access  Private (government)
-const rejectCitizenRegistration = asyncHandler(async (req, res) => {
-  const { registrationId } = req.params
-  const { rejectionReason } = req.body
-
-  const government = await Government.findOne({ userId: req.user._id })
-  if (!government) return errorResponse(res, "Government profile not found", 404)
-
-  const registration = await RegistrationApproval.findById(registrationId).populate("applicantId")
-  if (!registration) return errorResponse(res, "Registration not found", 404)
-
-  if (registration.applicantId.city !== government.city) {
-    return errorResponse(res, "Cannot reject registration from a different city", 403)
-  }
-
-  registration.status = "rejected"
-  registration.rejectionReason = rejectionReason
-  registration.rejectedAt = new Date()
-  registration.rejectedBy = req.user._id
-  await registration.save()
-
-  const citizen = registration.applicantId
-
-  // Log audit trail
-  await AuditLog.logAction({
-    user: req.user._id,
-    action: "reject_citizen_registration",
-    description: `Rejected citizen registration: ${rejectionReason || "No reason provided"}`,
-    governmentId: government._id,
-    entityType: "citizen",
-    entityId: citizen._id,
-    city: government.city,
-    ip: req.ip,
-    userAgent: req.get("user-agent"),
-  })
-
-  // Send rejection email
-  await sendEmail({
-    email: citizen.email,
-    subject: "Registration Rejected",
-    template: "citizenRegistrationRejected",
-    data: { citizenName: citizen.fullName, reason: rejectionReason },
-  })
-
-  successResponse(res, "Citizen registration rejected", { registration })
-})
 
 // @desc    Approve social project registration
 // @route   POST /api/government/registrations/projects/:projectId/approve

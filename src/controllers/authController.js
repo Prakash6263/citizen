@@ -50,8 +50,7 @@ const register = asyncHandler(async (req, res) => {
     agreedToTerms,
     agreedToPrivacy,
     registrationIP: req.ip,
-    isGovernmentApproved: userType === "government" ? false : false, // Will be set to true only when government approves
-    isRegistrationProjectDone: true, // Set to true immediately upon registration submission
+    isRegistrationProjectDone: userType === "social_project" ? false : true, // Social users need to submit project registration
   })
 
   const verificationOTP = user.getEmailVerificationOTP()
