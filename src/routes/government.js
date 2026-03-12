@@ -192,7 +192,7 @@ router.get("/token-requests", protect, authorize("government"), getPendingTokenR
 router.post("/token-requests/:tokenRequestId/approve", protect, authorize("government"), approveTokenRequest)
 router.post("/token-requests/:tokenRequestId/reject", protect, authorize("government"), rejectTokenRequest)
 
-// Manual Token Operations
+// Manual Token Operations/
 router.post("/tokens/issue", protect, authorize("government"), issueTokens)
 router.post("/tokens/transfer", protect, authorize("government"), transferTokens)
 
