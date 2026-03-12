@@ -76,13 +76,14 @@ const submitSocialProjectRegistration = asyncHandler(async (req, res) => {
     }
   }
 
+  // Use user's province from User model, not request body (for consistency)
   const registration = await SocialProjectRegistration.create({
     user: req.user._id,
     projectOrganizationName,
     allowedProjectTypes,
-    state,
-    city,
-    country,
+    state: req.user.province,
+    city: req.user.city,
+    country: req.user.country,
     responsiblePersonFullName,
     personPositionRole,
     contactNumber,
@@ -450,7 +451,6 @@ const getRegistrationStats = asyncHandler(async (req, res) => {
 // @route   GET /api/social-projects/citizen/my-city
 // @access  Private (Citizen users only)
 const getApprovedProjectsByCity = asyncHandler(async (req, res) => {
-  console.log("aaaaaaa")
   if (req.user.userType !== "citizen") {
     return errorResponse(res, "Only citizen users can access this endpoint", 403)
   }
@@ -458,11 +458,16 @@ const getApprovedProjectsByCity = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10, projectType, search } = req.query
   const skip = (page - 1) * limit
 
+  // Case-insensitive city matching
+  const userCity = req.user.city?.trim().toLowerCase()
+  const userProvince = req.user.province?.trim().toLowerCase()
+  const userCountry = req.user.country?.trim().toLowerCase()
+
   const filter = {
     status: "approved",
-    city: req.user.city,
-    country: req.user.country,
-    state: req.user.province,
+    city: { $regex: new RegExp(`^${userCity}$`, "i") },
+    country: { $regex: new RegExp(`^${userCountry}$`, "i") },
+    state: { $regex: new RegExp(`^${userProvince}$`, "i") },
     "projects.projectStatus": "active",
   }
 
@@ -483,7 +488,21 @@ const getApprovedProjectsByCity = asyncHandler(async (req, res) => {
 
   const projects = registrations.flatMap((registration) =>
     registration.projects
-      .filter((project) => project.projectStatus === "active")
+      .filter((project) => {
+        // Double-check project is active
+        if (project.projectStatus !== "active") return false
+        
+        // Filter projects by city at the project level too (case-insensitive)
+        const projectCity = project.city?.trim().toLowerCase()
+        const projectState = project.state?.trim().toLowerCase()
+        const projectCountry = project.country?.trim().toLowerCase()
+        
+        return (
+          projectCity === userCity &&
+          projectState === userProvince &&
+          projectCountry === userCountry
+        )
+      })
       .map((project) => ({
         _id: project._id,
         projectTitle: project.projectTitle,
@@ -562,7 +581,18 @@ const getActiveProjectsPublic = asyncHandler(async (req, res) => {
 
   const projects = registrations.flatMap((registration) =>
     registration.projects
-      .filter((project) => project.projectStatus === "active")
+      .filter((project) => {
+        // Must be active
+        if (project.projectStatus !== "active") return false
+        
+        // Re-check all query filters at project level
+        if (projectType && project.projectType !== projectType) return false
+        if (state && !new RegExp(state, "i").test(project.state)) return false
+        if (city && !new RegExp(city, "i").test(project.city)) return false
+        if (country && !new RegExp(country, "i").test(project.country)) return false
+        
+        return true
+      })
       .map((project) => ({
         _id: project._id,
         projectTitle: project.projectTitle,
@@ -579,6 +609,8 @@ const getActiveProjectsPublic = asyncHandler(async (req, res) => {
         createdBy: registration.user,
         registrationId: registration._id,
         projectStatus: project.projectStatus,
+        fundingGoal: project.fundingGoal,
+        tokensFunded: project.tokensFunded,
         createdAt: project.publishedAt,
       })),
   )
