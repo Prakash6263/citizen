@@ -120,8 +120,8 @@ const {
   updateGovernmentProfile,
   getPendingCitizenRegistrations,
   getPendingSocialProjectRegistrations,
-  approveCitizenRegistration,
-  rejectCitizenRegistration,
+  // approveCitizenRegistration,
+  // rejectCitizenRegistration,
   approveSocialProjectRegistration,
   rejectSocialProjectRegistration,
   getPendingTokenClaims,
@@ -157,18 +157,18 @@ router.put("/profile", protect, authorize("government"), updateGovernmentProfile
 // Registration Reviews
 router.get("/registrations/citizens", protect, authorize("government"), getPendingCitizenRegistrations)
 router.get("/registrations/projects", protect, authorize("government"), getPendingSocialProjectRegistrations)
-router.post(
-  "/registrations/citizens/:registrationId/approve",
-  protect,
-  authorize("government"),
-  approveCitizenRegistration,
-)
-router.post(
-  "/registrations/citizens/:registrationId/reject",
-  protect,
-  authorize("government"),
-  rejectCitizenRegistration,
-)
+// router.post(
+//   "/registrations/citizens/:registrationId/approve",
+//   protect,
+//   authorize("government"),
+//   approveCitizenRegistration,
+// )
+// router.post(
+//   "/registrations/citizens/:registrationId/reject",
+//   protect,
+//   authorize("government"),
+//   rejectCitizenRegistration,
+// )
 router.post(
   "/registrations/projects/:projectId/approve",
   protect,
