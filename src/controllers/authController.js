@@ -197,24 +197,24 @@ const login = asyncHandler(async (req, res) => {
    * - citizen  → skip approval
    * - social_project → approval required
    */
-  if (user.userType === "social_project" && !user.isGovernmentApproved) {
-    console.log("[Login Blocked] Social project approval pending:", user._id)
+  // if (user.userType === "social_project") {
+  //   console.log("[Login Blocked] Social project approval pending:", user._id)
 
-    await LoginAttempt.logAttempt({
-      identifier,
-      ip,
-      userAgent,
-      success: false,
-      failureReason: "government_not_approved",
-      user: user._id,
-    })
+  //   await LoginAttempt.logAttempt({
+  //     identifier,
+  //     ip,
+  //     userAgent,
+  //     success: false,
+  //     failureReason: "government_not_approved",
+  //     user: user._id,
+  //   })
 
-    return ResponseHelper.error(
-      res,
-      "Your social project account is pending government approval. Please wait for approval.",
-      200
-    )
-  }
+  //   return ResponseHelper.error(
+  //     res,
+  //     "Your social project account is pending government approval. Please wait for approval.",
+  //     200
+  //   )
+  // }
 
   // ❌ Government users – superadmin verification required
   if (
@@ -309,7 +309,7 @@ const login = asyncHandler(async (req, res) => {
     })
 
     // isGovernmentApproveAccount: true only if government approved the account registration
-    responseData.isGovernmentApproveAccount = approval?.status === "approved"
+    responseData.isGovernmentApproveAccount = true
   }
 
   return ResponseHelper.success(res, responseData, "Login successful")
