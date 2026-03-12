@@ -302,22 +302,13 @@ const login = asyncHandler(async (req, res) => {
 
   // Extra data for social project
   if (user.userType === "social_project") {
-    const SocialProjectRegistration = require("../models/SocialProjectRegistration")
-
-    const projectRegistration = await SocialProjectRegistration.findOne({
-      user: user._id,
-    })
-
-    // isRegistrationProjectDone: true if user has submitted project registration (has a record)
-    responseData.isRegistrationProjectDone = !!projectRegistration
-
-    // isGovernmentApproveAccount: true only if government approved the account registration
     const approval = await RegistrationApproval.findOne({
       applicantId: user._id,
       applicantModel: "User",
       applicationType: "social_project",
     })
 
+    // isGovernmentApproveAccount: true only if government approved the account registration
     responseData.isGovernmentApproveAccount = approval?.status === "approved"
   }
 
