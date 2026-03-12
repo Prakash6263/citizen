@@ -316,19 +316,8 @@ const processApprovalDecision = asyncHandler(async (req, res) => {
       }
     }
   } else if (type === "citizen" || type === "social_project") {
-    // Handle both citizen and social_project approvals
-    if (decision === "approved") {
-      const updateData = {
-        isGovernmentApproved: true,
-      };
-      
-      await User.findByIdAndUpdate(applicant._id, updateData);
-    } else {
-      // On rejection, keep isGovernmentApproved as false
-      await User.findByIdAndUpdate(applicant._id, {
-        isGovernmentApproved: false,
-      });
-    }
+    // Citizens and social project users are auto-approved - no action needed here
+    // This section is kept for backward compatibility but no longer used
   }
 
   const applicantEmail = applicant.email || applicant.institutionalEmail;

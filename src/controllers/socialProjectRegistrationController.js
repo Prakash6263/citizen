@@ -1,6 +1,5 @@
 const SocialProjectRegistration = require("../models/SocialProjectRegistration")
 const User = require("../models/User")
-const RegistrationApproval = require("../models/RegistrationApproval")
 const AllocationLimit = require("../models/AllocationLimit") // Import AllocationLimit
 const ProjectSupport = require("../models/ProjectSupport") // Import ProjectSupport
 const TokenTransaction = require("../models/TokenTransaction") // Import TokenTransaction
@@ -90,21 +89,21 @@ const submitSocialProjectRegistration = asyncHandler(async (req, res) => {
     emailAddress,
     documents,
     registrationNotes,
-    status: "pending", // Pending government approval for PROJECT REGISTRATION
+    status: "approved", // Automatically approved - no government approval needed
   })
 
-  // NO RegistrationApproval for project registration - government approves directly on SocialProjectRegistration
+  // Update user's isRegistrationProjectDone to true
+  await User.findByIdAndUpdate(req.user._id, { isRegistrationProjectDone: true })
 
   if (registration) {
     const responseData = {
       ...registration.toObject(),
       isRegistrationProjectDone: true, // User submitted project registration
-      isGovernmentApproveAccount: true, // Account approval is separate, not auto-approved
     }
 
     successResponse(
       res,
-      "Social project registration submitted. Awaiting government approval to create projects.",
+      "Social project registration submitted successfully. You can now create projects.",
       responseData,
       201,
     )
@@ -131,7 +130,6 @@ const getMyRegistration = asyncHandler(async (req, res) => {
   const responseData = {
     ...registration.toObject(),
     isRegistrationProjectDone: true, // User has submitted project registration
-    isGovernmentApproveAccount: registration.status === "approved", // true if government approved project registration
   }
 
   successResponse(res, "Social project registration retrieved successfully", responseData)
@@ -232,18 +230,6 @@ const processSocialProjectDecision = asyncHandler(async (req, res) => {
 
   await registration.save()
 
-  // Update corresponding RegistrationApproval record
-  await RegistrationApproval.findOneAndUpdate(
-    { applicantId: registration._id, applicationType: "social_project" },
-    {
-      status: decision === "approved" ? "approved" : "rejected",
-      approvalDecision: decision,
-      reviewedBy: req.user._id,
-      reviewedAt: new Date(),
-      rejectionReason: decision === "rejected" ? rejectionReason : undefined,
-    },
-  )
-
   const emailTemplate = decision === "approved" ? "socialProjectApproved" : "socialProjectRejected"
   const emailSubject =
     decision === "approved"
@@ -284,7 +270,7 @@ const createProject = asyncHandler(async (req, res) => {
     user: req.user._id,
   })
 
-  // Check if user has submitted project registration (isRegistrationProjectDone)
+  // User must have submitted project registration before creating projects
   if (!registration) {
     return errorResponse(res, "You must submit a project registration first before creating projects", 403)
   }
