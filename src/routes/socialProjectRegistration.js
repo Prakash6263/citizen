@@ -134,8 +134,8 @@ router.post("/:projectId/support", authorize("citizen"), supportProjectWithToken
 // PUBLIC ROUTES (No Authentication Required)
 // ============================================
 
-// Get all active projects
-router.get("/public/active", getActiveProjectsPublic)
+// Get all active projects (optional auth for citizen city filtering)
+router.get("/public/active", protectOptional, getActiveProjectsPublic)
 
 // Get single project details
 router.get("/public/:projectId", protectOptional, getProjectDetailsPublic)
