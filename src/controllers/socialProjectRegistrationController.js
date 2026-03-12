@@ -447,9 +447,10 @@ const getRegistrationStats = asyncHandler(async (req, res) => {
   })
 })
 
-// @desc    Get active projects for citizens (city-scoped)
+// @desc    Get active projects for citizens (city scoped)
 // @route   GET /api/social-projects/citizen/my-city
-// @access  Private (Citizen users only)
+// @access  Private (Citizen only)
+
 const getApprovedProjectsByCity = asyncHandler(async (req, res) => {
   if (req.user.userType !== "citizen") {
     return errorResponse(res, "Only citizen users can access this endpoint", 403)
@@ -458,50 +459,49 @@ const getApprovedProjectsByCity = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10, projectType, search } = req.query
   const skip = (page - 1) * limit
 
-  // Case-insensitive city matching
-  const userCity = req.user.city?.trim().toLowerCase()
-  const userProvince = req.user.province?.trim().toLowerCase()
-  const userCountry = req.user.country?.trim().toLowerCase()
+  const userCity = req.user.city?.trim()
+  const userState = req.user.province?.trim()
+  const userCountry = req.user.country?.trim()
 
-  const filter = {
+  if (!userCity || !userState || !userCountry) {
+    return errorResponse(res, "User location information is incomplete", 400)
+  }
+
+  const query = {
     status: "approved",
-    city: { $regex: new RegExp(`^${userCity}$`, "i") },
-    country: { $regex: new RegExp(`^${userCountry}$`, "i") },
-    state: { $regex: new RegExp(`^${userProvince}$`, "i") },
     "projects.projectStatus": "active",
+    "projects.city": { $regex: new RegExp(`^${userCity}$`, "i") },
+    "projects.state": { $regex: new RegExp(`^${userState}$`, "i") },
+    "projects.country": { $regex: new RegExp(`^${userCountry}$`, "i") },
   }
 
   if (projectType) {
-    filter["projects.projectType"] = projectType
+    query["projects.projectType"] = projectType
   }
 
-  const [registrations, total] = await Promise.all([
-    SocialProjectRegistration.find(filter)
-      .populate("user", "fullName email avatar")
-      .select("projectOrganizationName city country state projects user")
-      .sort({ "projects.publishedAt": -1 })
-      .skip(skip)
-      .limit(Number.parseInt(limit))
-      .lean(),
-    SocialProjectRegistration.countDocuments(filter),
-  ])
+  const registrations = await SocialProjectRegistration.find(query)
+    .populate("user", "fullName email avatar")
+    .select("projectOrganizationName city state country projects user")
+    .lean()
 
-  const projects = registrations.flatMap((registration) =>
-    registration.projects
+  let projects = []
+
+  registrations.forEach((registration) => {
+    const filteredProjects = registration.projects
       .filter((project) => {
-        // Double-check project is active
         if (project.projectStatus !== "active") return false
-        
-        // Filter projects by city at the project level too (case-insensitive)
-        const projectCity = project.city?.trim().toLowerCase()
-        const projectState = project.state?.trim().toLowerCase()
-        const projectCountry = project.country?.trim().toLowerCase()
-        
-        return (
-          projectCity === userCity &&
-          projectState === userProvince &&
-          projectCountry === userCountry
-        )
+
+        if (projectType && project.projectType !== projectType) return false
+
+        if (
+          project.city?.toLowerCase() !== userCity.toLowerCase() ||
+          project.state?.toLowerCase() !== userState.toLowerCase() ||
+          project.country?.toLowerCase() !== userCountry.toLowerCase()
+        ) {
+          return false
+        }
+
+        return true
       })
       .map((project) => ({
         _id: project._id,
@@ -522,19 +522,25 @@ const getApprovedProjectsByCity = asyncHandler(async (req, res) => {
         fundingGoal: project.fundingGoal,
         tokensFunded: project.tokensFunded,
         createdAt: project.publishedAt,
-      })),
-  )
+      }))
+
+    projects.push(...filteredProjects)
+  })
+
+  const total = projects.length
+
+  const paginatedProjects = projects.slice(skip, skip + Number(limit))
 
   const pagination = {
-    currentPage: Number.parseInt(page),
+    currentPage: Number(page),
     totalPages: Math.ceil(total / limit),
-    totalProjects: projects.length,
+    totalProjects: total,
     hasNext: page < Math.ceil(total / limit),
     hasPrev: page > 1,
   }
 
-  successResponse(res, "Approved projects in your city retrieved successfully", {
-    projects,
+  successResponse(res, "Projects in your city retrieved successfully", {
+    projects: paginatedProjects,
     pagination,
   })
 })
@@ -544,30 +550,49 @@ const getApprovedProjectsByCity = asyncHandler(async (req, res) => {
 // @access  Public
 const getActiveProjectsPublic = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10, projectType, state, city, country, search } = req.query
-
-  const filter = {
-    status: "approved",
-    "projects.projectStatus": "active",
-  }
-
-  if (projectType) {
-    filter["projects.projectType"] = projectType
-  }
-
-  if (state) {
-    filter["projects.state"] = { $regex: state, $options: "i" }
-  }
-
-  if (city) {
-    filter["projects.city"] = { $regex: city, $options: "i" }
-  }
-
-  if (country) {
-    filter["projects.country"] = { $regex: country, $options: "i" }
-  }
-
   const skip = (page - 1) * limit
 
+  // Build base filter - only approved registrations
+  const filter = {
+    status: "approved",
+  }
+
+  // Build $elemMatch for filtering projects array
+  const projectElemMatch = {
+    projectStatus: "active",
+  }
+
+  // CITIZEN USER: Automatically filter by their city, province, country
+  if (req.user && req.user.userType === "citizen") {
+    if (req.user.city) {
+      projectElemMatch.city = { $regex: new RegExp(`^${req.user.city.trim()}$`, "i") }
+    }
+    if (req.user.province) {
+      projectElemMatch.state = { $regex: new RegExp(`^${req.user.province.trim()}$`, "i") }
+    }
+    if (req.user.country) {
+      projectElemMatch.country = { $regex: new RegExp(`^${req.user.country.trim()}$`, "i") }
+    }
+  } else {
+    // NON-CITIZEN: Use query parameters if provided
+    if (projectType) {
+      projectElemMatch.projectType = projectType
+    }
+    if (state) {
+      projectElemMatch.state = { $regex: new RegExp(`^${state}$`, "i") }
+    }
+    if (city) {
+      projectElemMatch.city = { $regex: new RegExp(`^${city}$`, "i") }
+    }
+    if (country) {
+      projectElemMatch.country = { $regex: new RegExp(`^${country}$`, "i") }
+    }
+  }
+
+  // Add projects filter to main filter
+  filter.projects = { $elemMatch: projectElemMatch }
+
+  // Fetch registrations matching filter
   const [registrations, total] = await Promise.all([
     SocialProjectRegistration.find(filter)
       .populate("user", "fullName email avatar")
@@ -579,20 +604,10 @@ const getActiveProjectsPublic = asyncHandler(async (req, res) => {
     SocialProjectRegistration.countDocuments(filter),
   ])
 
+  // Extract and format active projects from registrations
   const projects = registrations.flatMap((registration) =>
     registration.projects
-      .filter((project) => {
-        // Must be active
-        if (project.projectStatus !== "active") return false
-        
-        // Re-check all query filters at project level
-        if (projectType && project.projectType !== projectType) return false
-        if (state && !new RegExp(state, "i").test(project.state)) return false
-        if (city && !new RegExp(city, "i").test(project.city)) return false
-        if (country && !new RegExp(country, "i").test(project.country)) return false
-        
-        return true
-      })
+      .filter((project) => project.projectStatus === "active")
       .map((project) => ({
         _id: project._id,
         projectTitle: project.projectTitle,
