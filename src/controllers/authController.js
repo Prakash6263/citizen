@@ -3,7 +3,6 @@ const User = require("../models/User")
 const RefreshToken = require("../models/RefreshToken")
 const LoginAttempt = require("../models/LoginAttempt")
 const AuditLog = require("../models/AuditLog")
-const RegistrationApproval = require("../models/RegistrationApproval")
 const asyncHandler = require("../utils/asyncHandler")
 const ResponseHelper = require("../utils/responseHelper")
 const { validationResult } = require("express-validator")
@@ -52,6 +51,7 @@ const register = asyncHandler(async (req, res) => {
     agreedToPrivacy,
     registrationIP: req.ip,
     isGovernmentApproved: userType === "government" ? false : false, // Will be set to true only when government approves
+    isRegistrationProjectDone: true, // Set to true immediately upon registration submission
   })
 
   const verificationOTP = user.getEmailVerificationOTP()
@@ -83,25 +83,6 @@ const register = asyncHandler(async (req, res) => {
     severity: "low",
   })
 
-  // Create RegistrationApproval only for social_project (citizens don't need approval)
-  const RegistrationApproval = require("../models/RegistrationApproval")
-  const Government = require("../models/Government")
-
-  if (userType === "social_project") {
-    // PENDING approval for social project account registration
-    const approval = await RegistrationApproval.create({
-      applicationType: userType, // "social_project"
-      applicantId: user._id,
-      applicantModel: "User",
-      status: "pending", // Pending government approval
-      submittedAt: new Date(),
-      country: country,
-      province: province,
-      city: city,
-      // Do NOT set reviewedBy, reviewedAt, or approvalDecision - only government can set these
-    })
-  }
-
   // Remove password from response
   user.password = undefined
 
@@ -110,7 +91,7 @@ const register = asyncHandler(async (req, res) => {
   if (userType === "citizen") {
     successMessage += " Your account is ready to use immediately after email verification."
   } else if (userType === "social_project") {
-    successMessage += " Your account will be activated after email verification and local government approval."
+    successMessage += " Your account is ready to use immediately after email verification."
   }
 
   ResponseHelper.success(
@@ -192,29 +173,7 @@ const login = asyncHandler(async (req, res) => {
     )
   }
 
-  /**
-   * ✅ GOVERNMENT APPROVAL LOGIC (UPDATED)
-   * - citizen  → skip approval
-   * - social_project → approval required
-   */
-  // if (user.userType === "social_project") {
-  //   console.log("[Login Blocked] Social project approval pending:", user._id)
 
-  //   await LoginAttempt.logAttempt({
-  //     identifier,
-  //     ip,
-  //     userAgent,
-  //     success: false,
-  //     failureReason: "government_not_approved",
-  //     user: user._id,
-  //   })
-
-  //   return ResponseHelper.error(
-  //     res,
-  //     "Your social project account is pending government approval. Please wait for approval.",
-  //     200
-  //   )
-  // }
 
   // ❌ Government users – superadmin verification required
   if (
@@ -298,18 +257,6 @@ const login = asyncHandler(async (req, res) => {
     user,
     token,
     refreshToken,
-  }
-
-  // Extra data for social project
-  if (user.userType === "social_project") {
-    const approval = await RegistrationApproval.findOne({
-      applicantId: user._id,
-      applicantModel: "User",
-      applicationType: "social_project",
-    })
-
-    // isGovernmentApproveAccount: true only if government approved the account registration
-    responseData.isGovernmentApproveAccount = true
   }
 
   return ResponseHelper.success(res, responseData, "Login successful")
