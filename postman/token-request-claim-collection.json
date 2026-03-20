@@ -1,0 +1,363 @@
+{
+  "info": {
+    "name": "Token Request & Claim Flow",
+    "description": "Complete API documentation for the Token Request and Claim workflow.\n\n## Flow Overview:\n1. **Citizen** submits a token request with proof document\n2. **Government** reviews and approves/rejects the request\n3. On approval, tokens are NOT automatically added to wallet\n4. **Citizen** must claim the approved tokens\n5. Upon claim, tokens are added to citizen's wallet\n\n## Statuses:\n- **Token Request Status**: pending, under_review, approved, rejected\n- **Claim Status**: not_applicable, pending_claim, claimed",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "1. CITIZEN - Token Request Submission",
+      "description": "Citizens submit token requests with proof documents",
+      "item": [
+        {
+          "name": "1.1 - Create Token Request",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/token-requests",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-requests"]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "proofDocument",
+                  "type": "file",
+                  "src": [],
+                  "description": "Required: Tax or eligibility proof document (image or PDF, max 10MB)"
+                }
+              ]
+            },
+            "description": "Citizen submits a token request with proof document.\n\n**Required Role**: citizen\n\n**Response includes**:\n- tokenRequestId\n- status: 'pending'\n- proofDocuments array"
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {},
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"success\": true,\n  \"message\": \"Token request created successfully\",\n  \"data\": {\n    \"tokenRequest\": {\n      \"tokenRequestId\": \"TOKENREQ-xxxx\",\n      \"status\": \"pending\",\n      \"proofDocuments\": [...],\n      \"createdAt\": \"2024-01-15T10:30:00Z\"\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "1.2 - Get My Token Requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/token-requests?page=1&limit=20&status=",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-requests"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Items per page (default: 20)"
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "Optional filter: pending, under_review, approved, rejected"
+                }
+              ]
+            },
+            "description": "Get all token requests submitted by the logged-in citizen.\n\n**Required Role**: citizen"
+          },
+          "response": []
+        },
+        {
+          "name": "1.3 - Get Token Request Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/token-requests/:tokenRequestId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-requests", ":tokenRequestId"],
+              "variable": [
+                {
+                  "key": "tokenRequestId",
+                  "value": "",
+                  "description": "MongoDB ObjectId of the token request"
+                }
+              ]
+            },
+            "description": "Get details of a specific token request.\n\n**Required Role**: citizen (owner only)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. GOVERNMENT - Review & Approval",
+      "description": "Government reviews and approves/rejects token requests",
+      "item": [
+        {
+          "name": "2.1 - Get Pending Token Requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/token-requests/government?page=1&limit=20&status=pending",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-requests", "government"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "status",
+                  "value": "pending",
+                  "description": "Optional: pending, under_review, approved, rejected"
+                }
+              ]
+            },
+            "description": "Government views token requests from citizens in their city (city-based isolation).\n\n**Required Role**: government"
+          },
+          "response": []
+        },
+        {
+          "name": "2.2 - Approve Token Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/token-requests/:tokenRequestId/approve",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-requests", ":tokenRequestId", "approve"],
+              "variable": [
+                {
+                  "key": "tokenRequestId",
+                  "value": "",
+                  "description": "MongoDB ObjectId of the token request"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 100\n}"
+            },
+            "description": "Government approves token request and sets the token amount.\n\n**IMPORTANT**: Tokens are NOT added to wallet yet. The request status changes to 'approved' and claimStatus becomes 'pending_claim'. Citizen must claim the tokens.\n\n**Required Role**: government\n\n**Body**:\n- amount (required): Number of tokens to issue (min: 1)"
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"Token request approved successfully. Citizen needs to claim the tokens.\",\n  \"data\": {\n    \"request\": {\n      \"id\": \"...\",\n      \"tokenRequestId\": \"TOKENREQ-xxxx\",\n      \"status\": \"approved\",\n      \"claimStatus\": \"pending_claim\",\n      \"issueAmount\": 100,\n      \"reviewedAt\": \"2024-01-15T12:00:00Z\"\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "2.3 - Reject Token Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/token-requests/:tokenRequestId/reject",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-requests", ":tokenRequestId", "reject"],
+              "variable": [
+                {
+                  "key": "tokenRequestId",
+                  "value": "",
+                  "description": "MongoDB ObjectId of the token request"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rejectionReason\": \"Invalid proof document\",\n  \"reviewNotes\": \"The submitted document is not a valid tax receipt\"\n}"
+            },
+            "description": "Government rejects token request with reason.\n\n**Required Role**: government\n\n**Body**:\n- rejectionReason (required): Reason for rejection\n- reviewNotes (optional): Additional notes"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. CITIZEN - Token Claims",
+      "description": "Citizens claim their approved tokens to add them to their wallet",
+      "item": [
+        {
+          "name": "3.1 - Get Pending Claims",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/token-requests/pending-claims?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-requests", "pending-claims"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Get all approved token requests that are pending claim.\n\n**Required Role**: citizen\n\n**Response includes**:\n- claims: Array of pending claim requests\n- totalClaimableTokens: Sum of all claimable tokens"
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"Pending claims retrieved\",\n  \"data\": {\n    \"claims\": [\n      {\n        \"_id\": \"...\",\n        \"tokenRequestId\": \"TOKENREQ-xxxx\",\n        \"status\": \"approved\",\n        \"claimStatus\": \"pending_claim\",\n        \"issueAmount\": 100,\n        \"reviewedAt\": \"2024-01-15T12:00:00Z\",\n        \"reviewedBy\": {\n          \"fullName\": \"Government User\",\n          \"email\": \"gov@city.gov\"\n        }\n      }\n    ],\n    \"totalClaimableTokens\": 100,\n    \"pagination\": {\n      \"page\": 1,\n      \"limit\": 20,\n      \"total\": 1\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "3.2 - Claim Single Token Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/token-requests/:tokenRequestId/claim",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-requests", ":tokenRequestId", "claim"],
+              "variable": [
+                {
+                  "key": "tokenRequestId",
+                  "value": "",
+                  "description": "MongoDB ObjectId of the approved token request"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "description": "Citizen claims tokens from a single approved request.\n\n**IMPORTANT**: This is when tokens are actually added to the citizen's wallet.\n\n**Required Role**: citizen\n\n**Prerequisites**:\n- Token request must be approved (status: 'approved')\n- Claim status must be 'pending_claim'\n- Citizen must be the owner of the request"
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"Tokens claimed successfully and added to your wallet\",\n  \"data\": {\n    \"claim\": {\n      \"tokenRequestId\": \"TOKENREQ-xxxx\",\n      \"amountClaimed\": 100,\n      \"claimedAt\": \"2024-01-15T14:00:00Z\",\n      \"transaction\": {\n        \"transactionId\": \"TXN-xxxx\",\n        \"amount\": 100\n      }\n    },\n    \"wallet\": {\n      \"newBalance\": 150\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "3.3 - Claim All Pending Tokens",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/token-requests/claim-all",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-requests", "claim-all"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "description": "Citizen claims ALL pending approved tokens at once.\n\n**IMPORTANT**: This is a bulk operation that claims all pending tokens and adds them to the wallet in a single request.\n\n**Required Role**: citizen\n\n**Response includes**:\n- summary: Total claimed, number of requests claimed\n- claimedRequests: Array of claimed request IDs\n- transactions: Array of created transactions\n- wallet: New balance"
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"All pending tokens claimed successfully\",\n  \"data\": {\n    \"summary\": {\n      \"totalClaimed\": 350,\n      \"requestsClaimed\": 3,\n      \"claimedAt\": \"2024-01-15T14:00:00Z\"\n    },\n    \"claimedRequests\": [\n      \"TOKENREQ-001\",\n      \"TOKENREQ-002\",\n      \"TOKENREQ-003\"\n    ],\n    \"transactions\": [\n      {\n        \"transactionId\": \"TXN-001\",\n        \"amount\": 100,\n        \"tokenRequestId\": \"TOKENREQ-001\"\n      },\n      {\n        \"transactionId\": \"TXN-002\",\n        \"amount\": 150,\n        \"tokenRequestId\": \"TOKENREQ-002\"\n      },\n      {\n        \"transactionId\": \"TXN-003\",\n        \"amount\": 100,\n        \"tokenRequestId\": \"TOKENREQ-003\"\n      }\n    ],\n    \"wallet\": {\n      \"newBalance\": 500\n    }\n  }\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [""]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [""]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000",
+      "type": "string",
+      "description": "API Base URL"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string",
+      "description": "JWT Access Token - Set after login"
+    },
+    {
+      "key": "citizen_token",
+      "value": "",
+      "type": "string",
+      "description": "Citizen user JWT token"
+    },
+    {
+      "key": "government_token",
+      "value": "",
+      "type": "string",
+      "description": "Government user JWT token"
+    }
+  ]
+}

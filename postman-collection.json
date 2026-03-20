@@ -2231,6 +2231,225 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "20. TOKEN REQUESTS & CLAIMS",
+      "description": "Citizen token request flow: Request -> Government Approval -> Citizen Claim -> Tokens Added to Wallet",
+      "item": [
+        {
+          "name": "20.1 - Create Token Request (Citizen)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/token-requests",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-requests"]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "proofDocument",
+                  "type": "file",
+                  "src": [],
+                  "description": "Tax or eligibility proof document (image or PDF, max 10MB)"
+                }
+              ]
+            },
+            "description": "Citizen submits a token request with proof document. Status will be 'pending'."
+          },
+          "response": []
+        },
+        {
+          "name": "20.2 - Get My Token Requests (Citizen)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/token-requests?page=1&limit=20&status=",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-requests"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "Optional: pending, under_review, approved, rejected"
+                }
+              ]
+            },
+            "description": "Get all token requests submitted by the logged-in citizen."
+          },
+          "response": []
+        },
+        {
+          "name": "20.3 - Get Token Request Details (Citizen)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/token-requests/:tokenRequestId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-requests", ":tokenRequestId"]
+            },
+            "description": "Get details of a specific token request (citizen can only view their own)."
+          },
+          "response": []
+        },
+        {
+          "name": "20.4 - Get Pending Token Requests (Government)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/token-requests/government?page=1&limit=20&status=pending",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-requests", "government"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "status",
+                  "value": "pending",
+                  "description": "Optional: pending, under_review, approved, rejected"
+                }
+              ]
+            },
+            "description": "Government views token requests from citizens in their city."
+          },
+          "response": []
+        },
+        {
+          "name": "20.5 - Approve Token Request (Government)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/token-requests/:tokenRequestId/approve",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-requests", ":tokenRequestId", "approve"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 100\n}"
+            },
+            "description": "Government approves token request. Tokens are NOT added to wallet yet - citizen must claim them."
+          },
+          "response": []
+        },
+        {
+          "name": "20.6 - Reject Token Request (Government)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/token-requests/:tokenRequestId/reject",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-requests", ":tokenRequestId", "reject"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rejectionReason\": \"Invalid proof document\",\n  \"reviewNotes\": \"The submitted document is not a valid tax receipt\"\n}"
+            },
+            "description": "Government rejects token request with reason."
+          },
+          "response": []
+        },
+        {
+          "name": "20.7 - Get Pending Claims (Citizen)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/token-requests/pending-claims?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-requests", "pending-claims"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Get all approved token requests that are pending claim by the citizen."
+          },
+          "response": []
+        },
+        {
+          "name": "20.8 - Claim Single Token Request (Citizen)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/token-requests/:tokenRequestId/claim",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-requests", ":tokenRequestId", "claim"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "description": "Citizen claims tokens from a single approved request. Tokens are added to wallet upon claim."
+          },
+          "response": []
+        },
+        {
+          "name": "20.9 - Claim All Pending Tokens (Citizen)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/token-requests/claim-all",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-requests", "claim-all"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "description": "Citizen claims all pending approved tokens at once. All tokens are added to wallet."
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "variable": [
