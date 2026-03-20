@@ -120,8 +120,6 @@ const {
   updateGovernmentProfile,
   getPendingCitizenRegistrations,
   getPendingSocialProjectRegistrations,
-  // approveCitizenRegistration,
-  // rejectCitizenRegistration,
   approveSocialProjectRegistration,
   rejectSocialProjectRegistration,
   getPendingTokenClaims,
@@ -132,7 +130,6 @@ const {
   getPendingFundRequests,
   approveFundRequest,
   rejectFundRequest,
-  getGovernmentAuditLogs,
   getPendingTokenRequests,
   approveTokenRequest,
   rejectTokenRequest,
@@ -200,8 +197,5 @@ router.post("/tokens/transfer", protect, authorize("government"), transferTokens
 router.get("/fund-requests", protect, authorize("government"), getPendingFundRequests)
 router.post("/fund-requests/:fundRequestId/approve", protect, authorize("government"), approveFundRequest)
 router.post("/fund-requests/:fundRequestId/reject", protect, authorize("government"), rejectFundRequest)
-
-// Audit Logs
-router.get("/audit-logs", protect, authorize("government"), getGovernmentAuditLogs)
 
 module.exports = router

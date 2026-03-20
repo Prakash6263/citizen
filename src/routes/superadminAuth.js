@@ -2,7 +2,6 @@ const express = require("express")
 const router = express.Router()
 const User = require("../models/User")
 const RefreshToken = require("../models/RefreshToken")
-const AuditLog = require("../models/AuditLog")
 
 // @desc    Superadmin login
 // @route   POST /api/super/login
@@ -61,16 +60,6 @@ router.post("/login", async (req, res) => {
     user.loginCount += 1
     user.lastLoginIP = ip
     await user.save({ validateBeforeSave: false })
-
-    // Log audit trail
-    await AuditLog.logAction({
-      user: user._id,
-      action: "login",
-      description: "Superadmin logged in successfully",
-      ip,
-      userAgent,
-      severity: "medium",
-    })
 
     // Generate refresh token
     const refreshToken = user.getRefreshToken()

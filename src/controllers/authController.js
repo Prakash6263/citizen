@@ -2,7 +2,6 @@ const crypto = require("crypto")
 const User = require("../models/User")
 const RefreshToken = require("../models/RefreshToken")
 const LoginAttempt = require("../models/LoginAttempt")
-const AuditLog = require("../models/AuditLog")
 const asyncHandler = require("../utils/asyncHandler")
 const ResponseHelper = require("../utils/responseHelper")
 const { validationResult } = require("express-validator")
@@ -71,16 +70,6 @@ const register = asyncHandler(async (req, res) => {
     console.error("Email sending failed:", error)
     // Don't fail registration if email fails
   }
-
-  // Log audit trail
-  await AuditLog.logAction({
-    user: user._id,
-    action: "register",
-    description: `User registered with type: ${userType}`,
-    ip: req.ip,
-    userAgent: req.get("User-Agent"),
-    severity: "low",
-  })
 
   // Remove password from response
   user.password = undefined
@@ -226,16 +215,6 @@ const login = asyncHandler(async (req, res) => {
   user.lastLoginIP = ip
   await user.save({ validateBeforeSave: false })
 
-  // Audit log
-  await AuditLog.logAction({
-    user: user._id,
-    action: "login",
-    description: "User logged in successfully",
-    ip,
-    userAgent,
-    severity: "low",
-  })
-
   // Tokens
   const token = user.getSignedJwtToken()
   const refreshToken = user.getRefreshToken()
@@ -275,16 +254,6 @@ const logout = asyncHandler(async (req, res) => {
     await RefreshToken.findOneAndUpdate({ token: refreshToken, user: req.user._id }, { isActive: false })
   }
 
-  // Log audit trail
-  await AuditLog.logAction({
-    user: req.user._id,
-    action: "logout",
-    description: "User logged out",
-    ip: req.ip,
-    userAgent: req.get("User-Agent"),
-    severity: "low",
-  })
-
   ResponseHelper.success(res, null, "Logout successful")
 })
 
@@ -323,16 +292,6 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
   // Generate new access token
   const newAccessToken = tokenDoc.user.getSignedJwtToken()
-
-  // Log audit trail
-  await AuditLog.logAction({
-    user: tokenDoc.user._id,
-    action: "token_refresh",
-    description: "Access token refreshed",
-    ip: req.ip,
-    userAgent: req.get("User-Agent"),
-    severity: "low",
-  })
 
   ResponseHelper.success(
     res,
@@ -391,16 +350,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
       },
     })
 
-    // Log audit trail
-    await AuditLog.logAction({
-      user: user._id,
-      action: "password_reset",
-      description: "Password reset OTP requested",
-      ip: req.ip,
-      userAgent: req.get("User-Agent"),
-      severity: "medium",
-    })
-  } catch (error) {
+    // Send reset email with OTP
     console.error("Email sending failed:", error)
     user.resetPasswordOTP = undefined
     user.resetPasswordExpire = undefined
@@ -447,16 +397,6 @@ const resetPassword = asyncHandler(async (req, res) => {
 
   // Revoke all refresh tokens for security
   await RefreshToken.revokeAllForUser(user._id)
-
-  // Log audit trail
-  await AuditLog.logAction({
-    user: user._id,
-    action: "password_change",
-    description: "Password reset completed using secure token",
-    ip: req.ip,
-    userAgent: req.get("User-Agent"),
-    severity: "medium",
-  })
 
   // Generate new tokens
   const newToken = user.getSignedJwtToken()
@@ -530,16 +470,6 @@ const verifyEmail = asyncHandler(async (req, res) => {
     console.error("Welcome email sending failed:", error)
     // Don't fail verification if welcome email fails
   }
-
-  // Log audit trail
-  await AuditLog.logAction({
-    user: user._id,
-    action: "email_verification",
-    description: "Email verified successfully",
-    ip: req.ip,
-    userAgent: req.get("User-Agent"),
-    severity: "low",
-  })
 
   ResponseHelper.success(
     res,
@@ -631,16 +561,7 @@ const resendVerificationPublic = asyncHandler(async (req, res) => {
       },
     })
 
-    // Log audit trail
-    await AuditLog.logAction({
-      user: user._id,
-      action: "resend_verification",
-      description: "Email verification OTP resent (public endpoint)",
-      ip: req.ip,
-      userAgent: req.get("User-Agent"),
-      severity: "low",
-    })
-  } catch (error) {
+    // Resend verification email with new OTP
     console.error("Email sending failed:", error)
     return ResponseHelper.error(res, "Email could not be sent. Please try again later.", 500)
   }
@@ -685,16 +606,6 @@ const verifyResetPassword = asyncHandler(async (req, res) => {
 
   const resetToken = user.getResetPasswordToken()
   await user.save({ validateBeforeSave: false })
-
-  // Log audit trail for verification step
-  await AuditLog.logAction({
-    user: user._id,
-    action: "password_reset",
-    description: "Password reset OTP verified and reset token generated",
-    ip: req.ip,
-    userAgent: req.get("User-Agent"),
-    severity: "medium",
-  })
 
   return ResponseHelper.success(
     res,

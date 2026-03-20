@@ -5,7 +5,6 @@ const SocialProjectRegistration = require("../models/SocialProjectRegistration")
 const TokenClaim = require("../models/TokenClaim")
 const FundRequest = require("../models/FundRequest")
 const TokenTransaction = require("../models/TokenTransaction")
-const AuditLog = require("../models/AuditLog")
 const TokenRequest = require("../models/TokenRequest") // Added TokenRequest model import
 const { generateUniqueId } = require("../utils/helpers")
 const { sendEmail } = require("../utils/emailService")
@@ -293,19 +292,6 @@ const approveSocialProjectRegistration = asyncHandler(async (req, res) => {
     await project.save()
   }
 
-  // Log audit trail
-  await AuditLog.logAction({
-    user: req.user._id,
-    action: "approve_social_project_registration",
-    description: `Approved social project registration: ${project.projectOrganizationName}`,
-    governmentId: government._id,
-    entityType: "social_project",
-    entityId: project._id,
-    city: government.city,
-    ip: req.ip,
-    userAgent: req.get("user-agent"),
-  })
-
   // Send approval email
   await sendEmail({
     email: project.user.email,
@@ -356,19 +342,6 @@ const rejectSocialProjectRegistration = asyncHandler(async (req, res) => {
     approvalRecord.rejectionReason = rejectionReason
     await approvalRecord.save()
   }
-
-  // Log audit trail
-  await AuditLog.logAction({
-    user: req.user._id,
-    action: "reject_social_project_registration",
-    description: `Rejected social project registration: ${rejectionReason || "No reason provided"}`,
-    governmentId: government._id,
-    entityType: "social_project",
-    entityId: project._id,
-    city: government.city,
-    ip: req.ip,
-    userAgent: req.get("user-agent"),
-  })
 
   // Send rejection email
   await sendEmail({
@@ -460,19 +433,6 @@ const approveTokenClaim = asyncHandler(async (req, res) => {
   // Update citizen wallet
   await User.findByIdAndUpdate(claim.claimant._id, { $inc: { tokenBalance: claim.calculatedTokens } }, { new: true })
 
-  // Log audit trail
-  await AuditLog.logAction({
-    user: req.user._id,
-    action: "approve_token_claim",
-    description: `Approved token claim: ${claim.calculatedTokens} tokens for ${claim.claimant.fullName}`,
-    governmentId: government._id,
-    entityType: "token_claim",
-    entityId: claim._id,
-    city: government.city,
-    ip: req.ip,
-    userAgent: req.get("user-agent"),
-  })
-
   // Send approval email
   await sendEmail({
     email: claim.claimant.email,
@@ -511,19 +471,6 @@ const rejectTokenClaim = asyncHandler(async (req, res) => {
   claim.rejectionReason = rejectionReason
   claim.reviewNotes = reviewNotes
   await claim.save()
-
-  // Log audit trail
-  await AuditLog.logAction({
-    user: req.user._id,
-    action: "reject_token_claim",
-    description: `Rejected token claim: ${rejectionReason || "No reason provided"}`,
-    governmentId: government._id,
-    entityType: "token_claim",
-    entityId: claim._id,
-    city: government.city,
-    ip: req.ip,
-    userAgent: req.get("user-agent"),
-  })
 
   // Send rejection email
   await sendEmail({
@@ -583,19 +530,6 @@ const issueTokens = asyncHandler(async (req, res) => {
     { new: true },
   )
 
-  // Log audit trail
-  await AuditLog.logAction({
-    user: req.user._id,
-    action: "issue_tokens",
-    description: `Issued ${tokenAmount} tokens to ${citizen.fullName}`,
-    governmentId: government._id,
-    entityType: "citizen",
-    entityId: citizen._id,
-    city: government.city,
-    ip: req.ip,
-    userAgent: req.get("user-agent"),
-  })
-
   successResponse(res, "Tokens issued successfully", { transaction, citizen: updatedCitizen })
 })
 
@@ -646,19 +580,6 @@ const transferTokens = asyncHandler(async (req, res) => {
     { $inc: { tokenBalance: tokenAmount } },
     { new: true },
   )
-
-  // Log audit trail
-  await AuditLog.logAction({
-    user: req.user._id,
-    action: "transfer_tokens",
-    description: `Transferred ${tokenAmount} tokens from ${fromCitizen.fullName} to ${toCitizen.fullName}`,
-    governmentId: government._id,
-    entityType: "citizen",
-    entityId: toCitizen._id,
-    city: government.city,
-    ip: req.ip,
-    userAgent: req.get("user-agent"),
-  })
 
   successResponse(res, "Tokens transferred successfully", { transaction })
 })
@@ -743,31 +664,6 @@ const approveFundRequest = asyncHandler(async (req, res) => {
     { new: true },
   )
 
-  // Log audit trail
-  await AuditLog.logAction({
-    user: req.user._id,
-    action: "approve_fund_request",
-    description: `Approved fund request: ${fundRequest.requestedFiatAmount} ${fundRequest.fiatCurrency}`,
-    governmentId: government._id,
-    entityType: "fund_request",
-    entityId: fundRequest._id,
-    city: government.city,
-    ip: req.ip,
-    userAgent: req.get("user-agent"),
-  })
-
-  // Send approval email
-  await sendEmail({
-    email: fundRequest.requestedBy.email,
-    subject: "Fund Request Approved",
-    template: "fundRequestApproved",
-    data: {
-      projectName: fundRequest.projectId.projectOrganizationName,
-      fiatAmount: fundRequest.requestedFiatAmount,
-      currency: fundRequest.fiatCurrency,
-    },
-  })
-
   successResponse(res, "Fund request approved", { fundRequest, transaction })
 })
 
@@ -795,19 +691,6 @@ const rejectFundRequest = asyncHandler(async (req, res) => {
   fundRequest.reviewNotes = reviewNotes
   await fundRequest.save()
 
-  // Log audit trail
-  await AuditLog.logAction({
-    user: req.user._id,
-    action: "reject_fund_request",
-    description: `Rejected fund request: ${rejectionReason || "No reason provided"}`,
-    governmentId: government._id,
-    entityType: "fund_request",
-    entityId: fundRequest._id,
-    city: government.city,
-    ip: req.ip,
-    userAgent: req.get("user-agent"),
-  })
-
   // Send rejection email
   await sendEmail({
     email: fundRequest.requestedBy.email,
@@ -820,35 +703,6 @@ const rejectFundRequest = asyncHandler(async (req, res) => {
   })
 
   successResponse(res, "Fund request rejected", { fundRequest })
-})
-
-// AUDIT LOGGING
-
-// @desc    Get government audit logs
-// @route   GET /api/government/audit-logs
-// @access  Private (government)
-const getGovernmentAuditLogs = asyncHandler(async (req, res) => {
-  const government = await Government.findOne({ userId: req.user._id })
-  if (!government) return errorResponse(res, "Government profile not found", 404)
-
-  const { page = 1, limit = 50 } = req.query
-
-  const logs = await AuditLog.find({ governmentId: government._id })
-    .populate("user", "fullName email")
-    .skip((page - 1) * limit)
-    .limit(Number(limit))
-    .sort({ createdAt: -1 })
-
-  const total = await AuditLog.countDocuments({ governmentId: government._id })
-
-  successResponse(res, "Audit logs retrieved", {
-    logs,
-    pagination: {
-      page: Number(page),
-      limit: Number(limit),
-      total,
-    },
-  })
 })
 
 // TOKEN REQUEST REVIEW
@@ -950,19 +804,6 @@ const approveTokenRequest = asyncHandler(async (req, res) => {
       tokenTransaction: transaction._id,
     })
 
-    // Audit log
-    await AuditLog.logAction({
-      user: req.user._id,
-      action: "approve_token_request",
-      description: `Approved token request ${tokenRequest.tokenRequestId} for ${tokenRequest.tokenAmount} tokens`,
-      governmentId: government._id,
-      entityType: "token_request",
-      entityId: tokenRequest._id,
-      city: government.city,
-      ip: req.ip,
-      userAgent: req.get("user-agent"),
-    })
-
     // Send approval email to citizen
     await sendEmail({
       email: citizen.email,
@@ -1022,19 +863,6 @@ const rejectTokenRequest = asyncHandler(async (req, res) => {
       reviewNotes: reviewNotes || "",
     })
 
-    // Audit log
-    await AuditLog.logAction({
-      user: req.user._id,
-      action: "reject_token_request",
-      description: `Rejected token request ${tokenRequest.tokenRequestId}: ${rejectionReason}`,
-      governmentId: government._id,
-      entityType: "token_request",
-      entityId: tokenRequest._id,
-      city: government.city,
-      ip: req.ip,
-      userAgent: req.get("user-agent"),
-    })
-
     // Send rejection email to citizen
     await sendEmail({
       email: citizen.email,
@@ -1074,7 +902,6 @@ module.exports = {
   getPendingFundRequests,
   approveFundRequest,
   rejectFundRequest,
-  getGovernmentAuditLogs,
   getPendingTokenRequests,
   approveTokenRequest,
   rejectTokenRequest,

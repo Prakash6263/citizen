@@ -1,7 +1,6 @@
 const FundRequest = require("../models/FundRequest")
 const SocialProjectRegistration = require("../models/SocialProjectRegistration")
 const User = require("../models/User")
-const AuditLog = require("../models/AuditLog")
 const { generateUniqueId } = require("../utils/helpers")
 const { sendEmail } = require("../utils/emailService")
 const localStorageService = require("../utils/localStorageService")
@@ -90,17 +89,6 @@ const createFundRequest = asyncHandler(async (req, res) => {
         ipAddress: req.ip,
         userAgent: req.get("user-agent"),
       },
-    })
-
-    await AuditLog.logAction({
-      user: req.user._id,
-      action: "create_fund_request",
-      description: `Created fund request for ${requestedFiatAmount} ${fiatCurrency}`,
-      entityType: "fund_request",
-      entityId: fundRequest._id,
-      city: req.user.city,
-      ip: req.ip,
-      userAgent: req.get("user-agent"),
     })
 
     // Send confirmation email
