@@ -62,7 +62,17 @@ const tokenRequestSchema = new mongoose.Schema(
       min: 1,
     },
 
-    // Token Transaction Reference (created on approval)
+    // Claim status for approved tokens
+    claimStatus: {
+      type: String,
+      enum: ["not_applicable", "pending_claim", "claimed"],
+      default: "not_applicable",
+    },
+
+    // When the citizen claimed the tokens
+    claimedAt: Date,
+
+    // Token Transaction Reference (created on claim, not on approval)
     tokenTransaction: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "TokenTransaction",
@@ -84,5 +94,6 @@ tokenRequestSchema.index({ requestedBy: 1, createdAt: -1 })
 tokenRequestSchema.index({ status: 1, createdAt: -1 })
 tokenRequestSchema.index({ reviewedBy: 1, reviewedAt: -1 })
 tokenRequestSchema.index({ city: 1, status: 1 })
+tokenRequestSchema.index({ requestedBy: 1, claimStatus: 1 }) // For pending claims lookup
 
 module.exports = mongoose.model("TokenRequest", tokenRequestSchema)

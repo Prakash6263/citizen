@@ -322,6 +322,8 @@ const auditLogSchema = new mongoose.Schema(
         "create_token_request",
         "approve_token_request",
         "reject_token_request",
+        "claim_approved_tokens",
+        "claim_all_approved_tokens",
       ],
     },
 
