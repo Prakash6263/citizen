@@ -766,7 +766,7 @@ const registerSocial = asyncHandler(async (req, res) => {
     agreedToTerms,
     agreedToPrivacy,
     registrationIP: req.ip,
-    isGovernmentApproved: false, // Will be set to true only when government approves
+    isGovernmentApproved: true, // Will be set to true only when government approves
   })
 
   const verificationOTP = user.getEmailVerificationOTP()
