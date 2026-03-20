@@ -262,36 +262,13 @@ const approveTokenRequest = asyncHandler(async (req, res) => {
       return errorResponse(res, "Daily issuance limit would be exceeded", 400)
     }
 
-    // Update request status
+    // Update request status - tokens are NOT added to wallet yet
+    // Citizen needs to claim them first
     tokenRequest.status = "approved"
     tokenRequest.reviewedBy = req.user._id
     tokenRequest.reviewedAt = new Date()
     tokenRequest.issueAmount = amount
-
-    // Create token transaction
-    const transactionId = generateUniqueId("TXN")
-    const transaction = await TokenTransaction.create({
-      transactionId,
-      transactionType: "issue",
-      transactionDirection: "credit",
-      toUser: tokenRequest.requestedBy._id,
-      amount,
-      tokenType: "civic",
-      description: `Token request approved - ${amount} tokens issued`,
-      category: "participation",
-      issuedBy: req.user._id,
-      approvedBy: req.user._id,
-      status: "completed",
-      processedAt: new Date(),
-    })
-
-    // Update citizen token balance
-    await User.findByIdAndUpdate(tokenRequest.requestedBy._id, {
-      $inc: { tokenBalance: amount },
-    })
-
-    // Link transaction to request
-    tokenRequest.tokenTransaction = transaction._id
+    tokenRequest.claimStatus = "pending_claim" // Mark as ready for citizen to claim
     await tokenRequest.save()
 
     // Audit log
@@ -306,29 +283,27 @@ const approveTokenRequest = asyncHandler(async (req, res) => {
       userAgent: req.get("user-agent"),
     })
 
-    // Send approval notification
+    // Send approval notification - inform citizen they need to claim tokens
     await sendEmail({
       email: tokenRequest.requestedBy.email,
-      subject: "Token Request Approved",
+      subject: "Token Request Approved - Claim Your Tokens",
       template: "tokenRequestApproved",
       data: {
         citizenName: tokenRequest.requestedBy.fullName,
         tokenRequestId: tokenRequest.tokenRequestId,
-        tokensIssued: amount,
+        tokensApproved: amount,
+        claimRequired: true,
       },
     })
 
-    successResponse(res, "Token request approved and tokens issued successfully", {
+    successResponse(res, "Token request approved successfully. Citizen needs to claim the tokens.", {
       request: {
         id: tokenRequest._id,
         tokenRequestId: tokenRequest.tokenRequestId,
         status: tokenRequest.status,
+        claimStatus: tokenRequest.claimStatus,
         issueAmount: amount,
         reviewedAt: tokenRequest.reviewedAt,
-        transaction: {
-          transactionId: transaction.transactionId,
-          amount: transaction.amount,
-        },
       },
     })
   } catch (error) {
@@ -419,6 +394,235 @@ const rejectTokenRequest = asyncHandler(async (req, res) => {
   }
 })
 
+// @desc    Get citizen's pending token claims (approved but not yet claimed)
+// @route   GET /api/token-requests/pending-claims
+// @access  Private (citizen)
+const getPendingClaims = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 20 } = req.query
+
+  const filter = {
+    requestedBy: req.user._id,
+    status: "approved",
+    claimStatus: "pending_claim",
+  }
+
+  const pendingClaims = await TokenRequest.find(filter)
+    .populate("reviewedBy", "fullName email")
+    .skip((page - 1) * limit)
+    .limit(Number(limit))
+    .sort({ reviewedAt: -1 })
+
+  const total = await TokenRequest.countDocuments(filter)
+
+  // Calculate total claimable tokens
+  const totalClaimable = pendingClaims.reduce((sum, claim) => sum + (claim.issueAmount || 0), 0)
+
+  successResponse(res, "Pending claims retrieved", {
+    claims: pendingClaims,
+    totalClaimableTokens: totalClaimable,
+    pagination: {
+      page: Number(page),
+      limit: Number(limit),
+      total,
+    },
+  })
+})
+
+// @desc    Citizen claims approved tokens (adds to wallet)
+// @route   POST /api/token-requests/:tokenRequestId/claim
+// @access  Private (citizen)
+const claimApprovedTokens = asyncHandler(async (req, res) => {
+  const { tokenRequestId } = req.params
+
+  // Find the token request
+  const tokenRequest = await TokenRequest.findById(tokenRequestId).populate("reviewedBy", "fullName email")
+
+  if (!tokenRequest) {
+    return errorResponse(res, "Token request not found", 404)
+  }
+
+  // Verify ownership - only the citizen who made the request can claim
+  if (tokenRequest.requestedBy.toString() !== req.user._id.toString()) {
+    return errorResponse(res, "You can only claim your own approved tokens", 403)
+  }
+
+  // Verify the request is approved and pending claim
+  if (tokenRequest.status !== "approved") {
+    return errorResponse(res, "This token request has not been approved yet", 400)
+  }
+
+  if (tokenRequest.claimStatus !== "pending_claim") {
+    if (tokenRequest.claimStatus === "claimed") {
+      return errorResponse(res, "These tokens have already been claimed", 400)
+    }
+    return errorResponse(res, "This token request is not eligible for claiming", 400)
+  }
+
+  const amount = tokenRequest.issueAmount
+
+  if (!amount || amount < 1) {
+    return errorResponse(res, "Invalid token amount for claim", 400)
+  }
+
+  try {
+    // Create token transaction
+    const transactionId = generateUniqueId("TXN")
+    const transaction = await TokenTransaction.create({
+      transactionId,
+      transactionType: "issue",
+      transactionDirection: "credit",
+      toUser: req.user._id,
+      amount,
+      tokenType: "civic",
+      description: `Claimed ${amount} tokens from approved request ${tokenRequest.tokenRequestId}`,
+      category: "participation",
+      issuedBy: tokenRequest.reviewedBy?._id,
+      approvedBy: tokenRequest.reviewedBy?._id,
+      status: "completed",
+      processedAt: new Date(),
+    })
+
+    // Update citizen token balance
+    await User.findByIdAndUpdate(req.user._id, {
+      $inc: { tokenBalance: amount },
+    })
+
+    // Update claim status
+    tokenRequest.claimStatus = "claimed"
+    tokenRequest.claimedAt = new Date()
+    tokenRequest.tokenTransaction = transaction._id
+    await tokenRequest.save()
+
+    // Audit log
+    await AuditLog.logAction({
+      user: req.user._id,
+      action: "claim_approved_tokens",
+      description: `Claimed ${amount} tokens from request ${tokenRequest.tokenRequestId}`,
+      entityType: "token_request",
+      entityId: tokenRequest._id,
+      city: req.user.city,
+      ip: req.ip,
+      userAgent: req.get("user-agent"),
+    })
+
+    // Get updated user balance
+    const updatedUser = await User.findById(req.user._id).select("tokenBalance")
+
+    successResponse(res, "Tokens claimed successfully and added to your wallet", {
+      claim: {
+        tokenRequestId: tokenRequest.tokenRequestId,
+        amountClaimed: amount,
+        claimedAt: tokenRequest.claimedAt,
+        transaction: {
+          transactionId: transaction.transactionId,
+          amount: transaction.amount,
+        },
+      },
+      wallet: {
+        newBalance: updatedUser.tokenBalance,
+      },
+    })
+  } catch (error) {
+    console.error("Token claim error:", error)
+    errorResponse(res, "Failed to claim tokens", 500)
+  }
+})
+
+// @desc    Citizen claims all pending approved tokens at once
+// @route   POST /api/token-requests/claim-all
+// @access  Private (citizen)
+const claimAllPendingTokens = asyncHandler(async (req, res) => {
+  // Find all pending claims for this citizen
+  const pendingClaims = await TokenRequest.find({
+    requestedBy: req.user._id,
+    status: "approved",
+    claimStatus: "pending_claim",
+  }).populate("reviewedBy", "fullName email")
+
+  if (pendingClaims.length === 0) {
+    return errorResponse(res, "No pending token claims found", 404)
+  }
+
+  try {
+    let totalClaimed = 0
+    const claimedRequests = []
+    const transactions = []
+
+    for (const tokenRequest of pendingClaims) {
+      const amount = tokenRequest.issueAmount
+
+      if (!amount || amount < 1) continue
+
+      // Create token transaction
+      const transactionId = generateUniqueId("TXN")
+      const transaction = await TokenTransaction.create({
+        transactionId,
+        transactionType: "issue",
+        transactionDirection: "credit",
+        toUser: req.user._id,
+        amount,
+        tokenType: "civic",
+        description: `Claimed ${amount} tokens from approved request ${tokenRequest.tokenRequestId}`,
+        category: "participation",
+        issuedBy: tokenRequest.reviewedBy?._id,
+        approvedBy: tokenRequest.reviewedBy?._id,
+        status: "completed",
+        processedAt: new Date(),
+      })
+
+      // Update claim status
+      tokenRequest.claimStatus = "claimed"
+      tokenRequest.claimedAt = new Date()
+      tokenRequest.tokenTransaction = transaction._id
+      await tokenRequest.save()
+
+      totalClaimed += amount
+      claimedRequests.push(tokenRequest.tokenRequestId)
+      transactions.push({
+        transactionId: transaction.transactionId,
+        amount: transaction.amount,
+        tokenRequestId: tokenRequest.tokenRequestId,
+      })
+    }
+
+    // Update citizen token balance (single update for all claims)
+    await User.findByIdAndUpdate(req.user._id, {
+      $inc: { tokenBalance: totalClaimed },
+    })
+
+    // Audit log
+    await AuditLog.logAction({
+      user: req.user._id,
+      action: "claim_all_approved_tokens",
+      description: `Claimed ${totalClaimed} tokens from ${claimedRequests.length} approved requests`,
+      entityType: "token_request",
+      entityId: null,
+      city: req.user.city,
+      ip: req.ip,
+      userAgent: req.get("user-agent"),
+    })
+
+    // Get updated user balance
+    const updatedUser = await User.findById(req.user._id).select("tokenBalance")
+
+    successResponse(res, "All pending tokens claimed successfully", {
+      summary: {
+        totalClaimed,
+        requestsClaimed: claimedRequests.length,
+        claimedAt: new Date(),
+      },
+      claimedRequests,
+      transactions,
+      wallet: {
+        newBalance: updatedUser.tokenBalance,
+      },
+    })
+  } catch (error) {
+    console.error("Bulk token claim error:", error)
+    errorResponse(res, "Failed to claim tokens", 500)
+  }
+})
+
 module.exports = {
   createTokenRequest,
   getMyTokenRequests,
@@ -426,4 +630,7 @@ module.exports = {
   getPendingTokenRequests,
   approveTokenRequest,
   rejectTokenRequest,
+  getPendingClaims,
+  claimApprovedTokens,
+  claimAllPendingTokens,
 }
