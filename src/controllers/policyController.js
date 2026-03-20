@@ -1,5 +1,4 @@
 const Policy = require("../models/Policy")
-const AuditLog = require("../models/AuditLog")
 const asyncHandler = require("../utils/asyncHandler")
 const ResponseHelper = require("../utils/responseHelper")
 const { validationResult } = require("express-validator")
@@ -131,16 +130,6 @@ const createOrUpdatePolicy = asyncHandler(async (req, res) => {
 
     await policy.save()
 
-    // Log audit trail
-    await AuditLog.logAction({
-      user: req.user._id,
-      action: "policy_update",
-      description: `${policyType} policy updated to version ${policy.version}`,
-      ip: req.ip,
-      userAgent: req.get("User-Agent"),
-      severity: "medium",
-    })
-
     ResponseHelper.success(res, policy, "Policy updated successfully", 200)
   } else {
     // Create new policy
@@ -156,16 +145,6 @@ const createOrUpdatePolicy = asyncHandler(async (req, res) => {
       changeNotes: changeNotes || "",
       createdBy: req.user._id,
       isActive: isActive !== undefined ? isActive : true,
-    })
-
-    // Log audit trail
-    await AuditLog.logAction({
-      user: req.user._id,
-      action: "policy_create",
-      description: `${policyType} policy created`,
-      ip: req.ip,
-      userAgent: req.get("User-Agent"),
-      severity: "medium",
     })
 
     ResponseHelper.success(res, policy, "Policy created successfully", 201)
@@ -194,16 +173,6 @@ const updatePolicyStatus = asyncHandler(async (req, res) => {
   if (!policy) {
     return ResponseHelper.error(res, "Policy not found", 404)
   }
-
-  // Log audit trail
-  await AuditLog.logAction({
-    user: req.user._id,
-    action: "policy_status_update",
-    description: `${policy.policyType} policy status changed to ${isActive ? "active" : "inactive"}`,
-    ip: req.ip,
-    userAgent: req.get("User-Agent"),
-    severity: "low",
-  })
 
   ResponseHelper.success(res, policy, "Policy status updated successfully")
 })
@@ -302,16 +271,6 @@ const restorePolicyVersion = asyncHandler(async (req, res) => {
   policy.changeNotes = changeNotes || `Restored from version ${targetVersion}`
 
   await policy.save()
-
-  // Log audit trail
-  await AuditLog.logAction({
-    user: req.user._id,
-    action: "policy_restore",
-    description: `${type} policy restored from version ${targetVersion} to version ${policy.version}`,
-    ip: req.ip,
-    userAgent: req.get("User-Agent"),
-    severity: "high",
-  })
 
   ResponseHelper.success(res, policy, "Policy restored successfully")
 })

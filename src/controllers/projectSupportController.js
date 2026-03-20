@@ -19,6 +19,11 @@ const supportProject = asyncHandler(async (req, res) => {
     return errorResponse(res, "Only citizens can support projects", 403)
   }
 
+  // Check if citizen is approved for token operations
+  if (req.user.approvalStatus !== "approved") {
+    return errorResponse(res, "Your account must be approved before supporting projects", 403)
+  }
+
   // Validate token amount
   if (!tokensToSpend || tokensToSpend <= 0) {
     return errorResponse(res, "Invalid token amount", 400)
@@ -42,12 +47,12 @@ const supportProject = asyncHandler(async (req, res) => {
     return errorResponse(res, "Project not found", 404)
   }
 
-  // Check if project is active
+  // Check if project is active (government-approved) — this is the only gate needed
   if (project.projectStatus !== "active") {
-    return errorResponse(res, "Project is not active", 400)
+    return errorResponse(res, "This project must be approved before receiving token support", 403)
   }
 
-  // Check if citizen already supported this project (5 token limit per project per citizen)
+  // Check if citizen already supported this project
   const existingSupport = project.supportedBy.find((support) => support.userId.toString() === req.user._id.toString())
 
   if (existingSupport) {

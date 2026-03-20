@@ -2,7 +2,6 @@ const TokenRequest = require("../models/TokenRequest")
 const TokenTransaction = require("../models/TokenTransaction")
 const User = require("../models/User")
 const Government = require("../models/Government")
-const AuditLog = require("../models/AuditLog")
 const { generateUniqueId } = require("../utils/helpers")
 const { sendEmail } = require("../utils/emailService")
 const localStorageService = require("../utils/localStorageService")
@@ -15,6 +14,11 @@ const crypto = require("crypto")
 // @route   POST /api/token-requests
 // @access  Private (citizen)
 const createTokenRequest = asyncHandler(async (req, res) => {
+  // Check if citizen is approved for token operations
+  if (req.user.approvalStatus !== "approved") {
+    return errorResponse(res, "Your account must be approved before requesting tokens", 403)
+  }
+
   // Validate file upload - proof document is required
   if (!req.file) {
     return errorResponse(res, "Proof document is required (image or PDF - tax or eligibility proof)", 400)
@@ -68,18 +72,6 @@ const createTokenRequest = asyncHandler(async (req, res) => {
       tokenRequestId: tokenRequest.tokenRequestId,
       savedCity: tokenRequest.city,
       status: tokenRequest.status,
-    })
-
-    // Audit log
-    await AuditLog.logAction({
-      user: req.user._id,
-      action: "create_token_request",
-      description: `Submitted token request with proof document`,
-      entityType: "token_request",
-      entityId: tokenRequest._id,
-      city: req.user.city,
-      ip: req.ip,
-      userAgent: req.get("user-agent"),
     })
 
     // Send confirmation email
@@ -271,18 +263,6 @@ const approveTokenRequest = asyncHandler(async (req, res) => {
     tokenRequest.claimStatus = "pending_claim" // Mark as ready for citizen to claim
     await tokenRequest.save()
 
-    // Audit log
-    await AuditLog.logAction({
-      user: req.user._id,
-      action: "approve_token_request",
-      description: `Approved token request and issued ${amount} tokens to ${tokenRequest.requestedBy.fullName}`,
-      entityType: "token_request",
-      entityId: tokenRequest._id,
-      city: req.user.city,
-      ip: req.ip,
-      userAgent: req.get("user-agent"),
-    })
-
     // Send approval notification - inform citizen they need to claim tokens
     await sendEmail({
       email: tokenRequest.requestedBy.email,
@@ -354,18 +334,6 @@ const rejectTokenRequest = asyncHandler(async (req, res) => {
     tokenRequest.reviewNotes = reviewNotes || ""
     await tokenRequest.save()
 
-    // Audit log
-    await AuditLog.logAction({
-      user: req.user._id,
-      action: "reject_token_request",
-      description: `Rejected token request: ${rejectionReason}`,
-      entityType: "token_request",
-      entityId: tokenRequest._id,
-      city: req.user.city,
-      ip: req.ip,
-      userAgent: req.get("user-agent"),
-    })
-
     // Send rejection notification
     await sendEmail({
       email: tokenRequest.requestedBy.email,
@@ -432,6 +400,11 @@ const getPendingClaims = asyncHandler(async (req, res) => {
 // @route   POST /api/token-requests/:tokenRequestId/claim
 // @access  Private (citizen)
 const claimApprovedTokens = asyncHandler(async (req, res) => {
+  // Check if citizen is approved for token operations
+  if (req.user.approvalStatus !== "approved") {
+    return errorResponse(res, "Your account must be approved before claiming tokens", 403)
+  }
+
   const { tokenRequestId } = req.params
 
   // Find the token request
@@ -493,18 +466,6 @@ const claimApprovedTokens = asyncHandler(async (req, res) => {
     tokenRequest.tokenTransaction = transaction._id
     await tokenRequest.save()
 
-    // Audit log
-    await AuditLog.logAction({
-      user: req.user._id,
-      action: "claim_approved_tokens",
-      description: `Claimed ${amount} tokens from request ${tokenRequest.tokenRequestId}`,
-      entityType: "token_request",
-      entityId: tokenRequest._id,
-      city: req.user.city,
-      ip: req.ip,
-      userAgent: req.get("user-agent"),
-    })
-
     // Get updated user balance
     const updatedUser = await User.findById(req.user._id).select("tokenBalance")
 
@@ -532,6 +493,11 @@ const claimApprovedTokens = asyncHandler(async (req, res) => {
 // @route   POST /api/token-requests/claim-all
 // @access  Private (citizen)
 const claimAllPendingTokens = asyncHandler(async (req, res) => {
+  // Check if citizen is approved for token operations
+  if (req.user.approvalStatus !== "approved") {
+    return errorResponse(res, "Your account must be approved before claiming tokens", 403)
+  }
+
   // Find all pending claims for this citizen
   const pendingClaims = await TokenRequest.find({
     requestedBy: req.user._id,
@@ -588,18 +554,6 @@ const claimAllPendingTokens = asyncHandler(async (req, res) => {
     // Update citizen token balance (single update for all claims)
     await User.findByIdAndUpdate(req.user._id, {
       $inc: { tokenBalance: totalClaimed },
-    })
-
-    // Audit log
-    await AuditLog.logAction({
-      user: req.user._id,
-      action: "claim_all_approved_tokens",
-      description: `Claimed ${totalClaimed} tokens from ${claimedRequests.length} approved requests`,
-      entityType: "token_request",
-      entityId: null,
-      city: req.user.city,
-      ip: req.ip,
-      userAgent: req.get("user-agent"),
     })
 
     // Get updated user balance

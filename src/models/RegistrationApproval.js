@@ -95,9 +95,8 @@ const registrationApprovalSchema = new mongoose.Schema(
 )
 
 // Indexes
-registrationApprovalSchema.index({ applicationType: 1, status: 1 })
+registrationApprovalSchema.index({ city: 1, applicationType: 1, status: 1 })
 registrationApprovalSchema.index({ reviewedBy: 1 })
 registrationApprovalSchema.index({ submittedAt: -1 })
-registrationApprovalSchema.index({ city: 1, applicationType: 1, status: 1 })
 
 module.exports = mongoose.model("RegistrationApproval", registrationApprovalSchema)
