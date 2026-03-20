@@ -1,6 +1,7 @@
 const SocialProjectRegistration = require("../models/SocialProjectRegistration")
 const User = require("../models/User")
-const AllocationLimit = require("../models/AllocationLimit") // Import AllocationLimit
+const Government = require("../models/Government")
+const AllocationLimit = require("../models/AllocationLimit")
 const ProjectSupport = require("../models/ProjectSupport") // Import ProjectSupport
 const TokenTransaction = require("../models/TokenTransaction") // Import TokenTransaction
 const asyncHandler = require("../utils/asyncHandler")
@@ -75,21 +76,33 @@ const submitSocialProjectRegistration = asyncHandler(async (req, res) => {
     }
   }
 
-  // Use user's province from User model, not request body (for consistency)
+  // Derive location: prefer body values, fall back to user profile
+  const registrationCity = (city || req.user.city || "").trim()
+  const registrationState = (state || req.user.province || "").trim()
+  const registrationCountry = (country || req.user.country || "").trim()
+
+  if (!registrationCity || !registrationState || !registrationCountry) {
+    return errorResponse(
+      res,
+      "City, state and country are required. Please complete your profile location or provide them in the request.",
+      400,
+    )
+  }
+
   const registration = await SocialProjectRegistration.create({
     user: req.user._id,
     projectOrganizationName,
     allowedProjectTypes,
-    state: req.user.province,
-    city: req.user.city,
-    country: req.user.country,
+    state: registrationState,
+    city: registrationCity,
+    country: registrationCountry,
     responsiblePersonFullName,
     personPositionRole,
     contactNumber,
     emailAddress,
     documents,
     registrationNotes,
-    status: "approved", // Automatically approved - no government approval needed
+    status: "pending", // Requires government approval — NOT auto-approved
   })
 
   // Update user's isRegistrationProjectDone to true
@@ -103,7 +116,7 @@ const submitSocialProjectRegistration = asyncHandler(async (req, res) => {
 
     successResponse(
       res,
-      "Social project registration submitted successfully. You can now create projects.",
+      "Social project registration submitted successfully. Awaiting government approval to create projects.",
       responseData,
       201,
     )
@@ -135,12 +148,28 @@ const getMyRegistration = asyncHandler(async (req, res) => {
   successResponse(res, "Social project registration retrieved successfully", responseData)
 })
 
-// @desc    Get all projects s
+// @desc    Get all ACTIVE projects (PUBLIC - no auth)
 // @route   GET /api/social-projects
 const getAllProjects = asyncHandler(async (req, res) => {
-  const registrations = await SocialProjectRegistration.find().sort({ createdAt: -1 })
-  const projects = registrations.flatMap((reg) => reg.projects || [])
-  successResponse(res, "All projects retrieved", projects)
+  // Only return active projects from approved registrations — never expose pending_approval projects
+  const registrations = await SocialProjectRegistration.find({
+    status: "approved",
+    "projects.projectStatus": "active",
+  })
+    .select("projectOrganizationName city state country projects")
+    .sort({ createdAt: -1 })
+    .lean()
+
+  const projects = registrations.flatMap((reg) =>
+    (reg.projects || [])
+      .filter((p) => p.projectStatus === "active")
+      .map((p) => ({
+        ...p,
+        organizationName: reg.projectOrganizationName,
+        organizationCity: reg.city,
+      })),
+  )
+  successResponse(res, "Active projects retrieved", projects)
 })
 
 // @desc    Get all pending social project registrations (Government only)
@@ -152,21 +181,23 @@ const getPendingRegistrations = asyncHandler(async (req, res) => {
   }
 
   const { page = 1, limit = 10 } = req.query
-
   const skip = (page - 1) * limit
 
-  // Use the government user's city directly from the authenticated user
-  const governmentCity = req.user.city
-
-  if (!governmentCity) {
-    return errorResponse(res, "Government user city information is missing", 400)
+  // Load the Government profile to get the authoritative city/province/country
+  const government = await Government.findOne({ userId: req.user._id })
+  if (!government) {
+    return errorResponse(res, "Government profile not found", 404)
   }
 
-  // Query directly from SocialProjectRegistration with city filter
+  console.log("[v0] getPendingRegistrations - government city:", government.city, "province:", government.province, "country:", government.country)
+
+  // Use case-insensitive regex so casing differences never cause mismatches
   const query = {
     status: "pending",
-    city: governmentCity,
+    city: { $regex: new RegExp(`^${government.city.trim()}$`, "i") },
   }
+
+  console.log("[v0] getPendingRegistrations - query:", JSON.stringify(query))
 
   const [registrations, total] = await Promise.all([
     SocialProjectRegistration.find(query)
@@ -177,6 +208,8 @@ const getPendingRegistrations = asyncHandler(async (req, res) => {
       .lean(),
     SocialProjectRegistration.countDocuments(query),
   ])
+
+  console.log("[v0] getPendingRegistrations - found:", total, "registrations")
 
   const pagination = {
     currentPage: Number.parseInt(page),
@@ -210,6 +243,17 @@ const processSocialProjectDecision = asyncHandler(async (req, res) => {
 
   if (!registration) {
     return errorResponse(res, "Social project registration not found", 404)
+  }
+
+  // Load government profile and verify this registration belongs to their city
+  const Government = require("../models/Government")
+  const government = await Government.findOne({ userId: req.user._id })
+  if (!government) {
+    return errorResponse(res, "Government profile not found", 404)
+  }
+
+  if (registration.city?.toLowerCase() !== government.city?.toLowerCase()) {
+    return errorResponse(res, "Cannot process a registration from a different city", 403)
   }
 
   if (registration.status !== "pending") {
@@ -275,6 +319,11 @@ const createProject = asyncHandler(async (req, res) => {
     return errorResponse(res, "You must submit a project registration first before creating projects", 403)
   }
 
+  // Registration must be approved by government before creating projects
+  if (registration.status !== "approved") {
+    return errorResponse(res, "Your registration must be approved by government before creating projects. Current status: " + registration.status, 403)
+  }
+
   const {
     projectTitle,
     projectType,
@@ -331,9 +380,11 @@ const createProject = asyncHandler(async (req, res) => {
   const newProject = {
     projectTitle,
     projectType,
-    state,
-    city,
-    country,
+    // Always inherit city/state/country from the approved registration so the
+    // government's city-scoped query always finds these projects
+    state: registration.state,
+    city: registration.city,
+    country: registration.country,
     projectDescription,
     startDate,
     endDate,
@@ -342,12 +393,10 @@ const createProject = asyncHandler(async (req, res) => {
       email,
     },
     documentation,
-    projectStatus: "active", // Set to active immediately for social projects
+    projectStatus: "pending_approval", // NOT active — requires government approval
     publishedAt: new Date(),
-    approvedBy: req.user._id, // Self-approved
-    approvedAt: new Date(),
-    fundingGoal: fundingGoal || 0, // Set funding goal if provided
-    allocationSet: fundingGoal ? true : false, // Mark allocation as set if funding goal provided
+    fundingGoal: 0,  // Set by government during project approval
+    allocationSet: false,
     tokensFunded: 0,
   }
 
@@ -356,22 +405,7 @@ const createProject = asyncHandler(async (req, res) => {
 
   const createdProject = registration.projects[registration.projects.length - 1]
 
-  if (fundingGoal && fundingGoal > 0) {
-    const citizenTokenLimit = Math.floor(fundingGoal * 0.1) // Default: 10% of funding goal per citizen
-
-    await AllocationLimit.create({
-      projectRegistration: registration._id,
-      project: createdProject._id,
-      citizenTokenLimit: citizenTokenLimit,
-      projectTokenLimit: fundingGoal,
-      setBy: req.user._id,
-      setAt: new Date(),
-      status: "active",
-      notes: `Auto-created for social project - no government approval needed`,
-    })
-  }
-
-  successResponse(res, "Project created and published successfully", {
+  successResponse(res, "Project submitted for government approval. It will be visible to citizens once approved.", {
     project: createdProject,
     registration,
   })
@@ -442,23 +476,21 @@ const getApprovedProjectsByCity = asyncHandler(async (req, res) => {
     return errorResponse(res, "Only citizen users can access this endpoint", 403)
   }
 
-  const { page = 1, limit = 10, projectType, search } = req.query
+  const { page = 1, limit = 10, projectType } = req.query
   const skip = (page - 1) * limit
 
   const userCity = req.user.city?.trim()
-  const userState = req.user.province?.trim()
-  const userCountry = req.user.country?.trim()
 
-  if (!userCity || !userState || !userCountry) {
-    return errorResponse(res, "User location information is incomplete", 400)
+  if (!userCity) {
+    return errorResponse(res, "Your profile is missing a city. Please update your profile before viewing city projects.", 400)
   }
 
+  // Fetch ALL projects from same city regardless of projectStatus.
+  // Citizens can VIEW unapproved projects — token support is blocked inside supportProjectWithTokens.
+  // Only require the registration itself to be government-approved (status:"approved").
   const query = {
     status: "approved",
-    "projects.projectStatus": "active",
-    "projects.city": { $regex: new RegExp(`^${userCity}$`, "i") },
-    "projects.state": { $regex: new RegExp(`^${userState}$`, "i") },
-    "projects.country": { $regex: new RegExp(`^${userCountry}$`, "i") },
+    city: { $regex: new RegExp(`^${userCity}$`, "i") },
   }
 
   if (projectType) {
@@ -475,27 +507,16 @@ const getApprovedProjectsByCity = asyncHandler(async (req, res) => {
   registrations.forEach((registration) => {
     const filteredProjects = registration.projects
       .filter((project) => {
-        if (project.projectStatus !== "active") return false
-
         if (projectType && project.projectType !== projectType) return false
-
-        if (
-          project.city?.toLowerCase() !== userCity.toLowerCase() ||
-          project.state?.toLowerCase() !== userState.toLowerCase() ||
-          project.country?.toLowerCase() !== userCountry.toLowerCase()
-        ) {
-          return false
-        }
-
         return true
       })
       .map((project) => ({
         _id: project._id,
         projectTitle: project.projectTitle,
         projectType: project.projectType,
-        state: project.state,
-        city: project.city,
-        country: project.country,
+        state: project.state || registration.state,
+        city: project.city || registration.city,
+        country: project.country || registration.country,
         projectDescription: project.projectDescription,
         contactInfo: project.contactInfo,
         documentation: formatDocumentation(project.documentation),
@@ -504,7 +525,8 @@ const getApprovedProjectsByCity = asyncHandler(async (req, res) => {
         organizationState: registration.state,
         createdBy: registration.user,
         registrationId: registration._id,
-        projectStatus: project.projectStatus,
+        projectStatus: project.projectStatus,   // "pending_approval" | "active" — citizen can see both
+        canSupport: project.projectStatus === "active", // frontend uses this to show/hide support button
         fundingGoal: project.fundingGoal,
         tokensFunded: project.tokensFunded,
         createdAt: project.publishedAt,
@@ -514,7 +536,6 @@ const getApprovedProjectsByCity = asyncHandler(async (req, res) => {
   })
 
   const total = projects.length
-
   const paginatedProjects = projects.slice(skip, skip + Number(limit))
 
   const pagination = {
@@ -538,45 +559,39 @@ const getActiveProjectsPublic = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10, projectType, state, city, country, search } = req.query
   const skip = (page - 1) * limit
 
-  // Build base filter - only approved registrations
+  // Build base filter — only government-approved registrations
   const filter = {
     status: "approved",
   }
 
-  // Build $elemMatch for filtering projects array
-  const projectElemMatch = {
-    projectStatus: "active",
-  }
+  // Build $elemMatch for filtering projects array — NO projectStatus filter here.
+  // All projects from approved registrations are visible; token support is blocked per-project inside supportProjectWithTokens.
+  const projectElemMatch = {}
 
-  // CITIZEN USER: Automatically filter by their city, province, country
-  if (req.user && req.user.userType === "citizen") {
-    if (req.user.city) {
-      projectElemMatch.city = { $regex: new RegExp(`^${req.user.city.trim()}$`, "i") }
-    }
-    if (req.user.province) {
-      projectElemMatch.state = { $regex: new RegExp(`^${req.user.province.trim()}$`, "i") }
-    }
-    if (req.user.country) {
-      projectElemMatch.country = { $regex: new RegExp(`^${req.user.country.trim()}$`, "i") }
-    }
+  // CITIZEN: auto-filter by their city
+  if (req.user && req.user.userType === "citizen" && req.user.city) {
+    filter.city = { $regex: new RegExp(`^${req.user.city.trim()}$`, "i") }
   } else {
-    // NON-CITIZEN: Use query parameters if provided
-    if (projectType) {
-      projectElemMatch.projectType = projectType
+    // NON-CITIZEN: use optional query params
+    if (city) {
+      filter.city = { $regex: new RegExp(`^${city.trim()}$`, "i") }
     }
     if (state) {
       projectElemMatch.state = { $regex: new RegExp(`^${state}$`, "i") }
-    }
-    if (city) {
-      projectElemMatch.city = { $regex: new RegExp(`^${city}$`, "i") }
     }
     if (country) {
       projectElemMatch.country = { $regex: new RegExp(`^${country}$`, "i") }
     }
   }
 
-  // Add projects filter to main filter
-  filter.projects = { $elemMatch: projectElemMatch }
+  if (projectType) {
+    projectElemMatch.projectType = projectType
+  }
+
+  // Only add $elemMatch if we have project-level filters
+  if (Object.keys(projectElemMatch).length > 0) {
+    filter.projects = { $elemMatch: projectElemMatch }
+  }
 
   // Fetch registrations matching filter
   const [registrations, total] = await Promise.all([
@@ -590,17 +605,16 @@ const getActiveProjectsPublic = asyncHandler(async (req, res) => {
     SocialProjectRegistration.countDocuments(filter),
   ])
 
-  // Extract and format active projects from registrations
+  // Extract and format all projects — citizens can see pending_approval too; token support blocked separately
   const projects = registrations.flatMap((registration) =>
     registration.projects
-      .filter((project) => project.projectStatus === "active")
       .map((project) => ({
         _id: project._id,
         projectTitle: project.projectTitle,
         projectType: project.projectType,
-        state: project.state,
-        city: project.city,
-        country: project.country,
+        state: project.state || registration.state,
+        city: project.city || registration.city,
+        country: project.country || registration.country,
         projectDescription: project.projectDescription,
         contactInfo: project.contactInfo,
         documentation: formatDocumentation(project.documentation),
@@ -610,6 +624,7 @@ const getActiveProjectsPublic = asyncHandler(async (req, res) => {
         createdBy: registration.user,
         registrationId: registration._id,
         projectStatus: project.projectStatus,
+        canSupport: project.projectStatus === "active",
         fundingGoal: project.fundingGoal,
         tokensFunded: project.tokensFunded,
         createdAt: project.publishedAt,
@@ -717,10 +732,8 @@ const supportProjectWithTokens = asyncHandler(async (req, res) => {
   const registration = await SocialProjectRegistration.findOne({
     status: "approved",
     "projects._id": projectId,
-    // CITY-BASED FILTERING: Only citizens from the same city can contribute
-    city: req.user.city,
-    country: req.user.country,
-    state: req.user.province,
+    // City-based isolation: only citizens from the same city can contribute
+    city: { $regex: new RegExp(`^${req.user.city?.trim()}$`, "i") },
   })
 
   if (!registration) {
@@ -1016,17 +1029,26 @@ const getPendingProjectsApproval = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10 } = req.query
   const skip = (page - 1) * limit
 
+  // Load Government profile to get the authoritative city
+  const government = await Government.findOne({ userId: req.user._id })
+  if (!government) {
+    return errorResponse(res, "Government profile not found", 404)
+  }
+
+  console.log("[v0] getPendingProjectsApproval - government city:", government.city)
+
+  // Only approved registrations from this city that have pending_approval projects
+  const query = {
+    status: "approved",
+    city: { $regex: new RegExp(`^${government.city.trim()}$`, "i") },
+    "projects.projectStatus": "pending_approval",
+  }
+
   const [registrations, total] = await Promise.all([
-    SocialProjectRegistration.find({
-      status: "approved",
-      "projects.projectStatus": "pending_approval",
-    })
+    SocialProjectRegistration.find(query)
       .populate("user", "fullName email")
       .lean(),
-    SocialProjectRegistration.countDocuments({
-      status: "approved",
-      "projects.projectStatus": "pending_approval",
-    }),
+    SocialProjectRegistration.countDocuments(query),
   ])
 
   const projects = registrations.flatMap((registration) =>
@@ -1051,6 +1073,8 @@ const getPendingProjectsApproval = asyncHandler(async (req, res) => {
       })),
   )
 
+  console.log("[v0] getPendingProjectsApproval - found:", projects.length, "pending projects")
+
   const pagination = {
     currentPage: Number.parseInt(page),
     totalPages: Math.ceil(total / limit),
@@ -1073,10 +1097,11 @@ const approveProjectDecision = asyncHandler(async (req, res) => {
     return errorResponse(res, "Only government users can approve projects", 403)
   }
 
-  const { projectId } = req.params
+  // projectId is the subdocument _id inside registration.projects[]
+  const projectId = req.params.projectId
   const { decision, rejectionReason, fundingGoal, citizenTokenLimit } = req.body
 
-  if (!["active", "rejected"].includes(decision)) {
+  if (!decision || !["active", "rejected"].includes(decision)) {
     return errorResponse(res, "Decision must be 'active' or 'rejected'", 400)
   }
 
@@ -1092,25 +1117,38 @@ const approveProjectDecision = asyncHandler(async (req, res) => {
     }
   }
 
+  // Load government profile to get authoritative city
+  const government = await Government.findOne({ userId: req.user._id })
+  if (!government) {
+    return errorResponse(res, "Government profile not found", 404)
+  }
+
+  // Find the registration that contains this project subdocument
+  // The registration must be approved AND in the government's city
   const registration = await SocialProjectRegistration.findOne({
     status: "approved",
     "projects._id": projectId,
+    city: { $regex: new RegExp(`^${government.city.trim()}$`, "i") },
   }).populate("user", "fullName email")
 
   if (!registration) {
-    return errorResponse(res, "Project not found", 404)
+    return errorResponse(
+      res,
+      "Project not found, or the registration is not approved, or it belongs to a different city",
+      404,
+    )
   }
 
   const projectIndex = registration.projects.findIndex((p) => p._id.toString() === projectId)
 
   if (projectIndex === -1) {
-    return errorResponse(res, "Project not found", 404)
+    return errorResponse(res, "Project not found in registration", 404)
   }
 
   const project = registration.projects[projectIndex]
 
   if (project.projectStatus !== "pending_approval") {
-    return errorResponse(res, "Project has already been processed", 400)
+    return errorResponse(res, `Project has already been processed (current status: ${project.projectStatus})`, 400)
   }
 
   project.projectStatus = decision
@@ -1128,8 +1166,6 @@ const approveProjectDecision = asyncHandler(async (req, res) => {
   await registration.save()
 
   if (decision === "active") {
-    const AllocationLimit = require("../models/AllocationLimit")
-
     const existingAllocation = await AllocationLimit.findOne({
       project: projectId,
       projectRegistration: registration._id,

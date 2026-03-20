@@ -119,9 +119,9 @@ const {
   getGovernmentProfile,
   updateGovernmentProfile,
   getPendingCitizenRegistrations,
+  approveCitizen,
+  rejectCitizen,
   getPendingSocialProjectRegistrations,
-  // approveCitizenRegistration,
-  // rejectCitizenRegistration,
   approveSocialProjectRegistration,
   rejectSocialProjectRegistration,
   getPendingTokenClaims,
@@ -132,7 +132,6 @@ const {
   getPendingFundRequests,
   approveFundRequest,
   rejectFundRequest,
-  getGovernmentAuditLogs,
   getPendingTokenRequests,
   approveTokenRequest,
   rejectTokenRequest,
@@ -154,21 +153,14 @@ router.put("/register/step-2/:id", governmentRegisterStep2Validation, handleVali
 router.get("/profile", protect, authorize("government"), getGovernmentProfile)
 router.put("/profile", protect, authorize("government"), updateGovernmentProfile)
 
-// Registration Reviews
+// Citizen Approval for Token Operations
 router.get("/registrations/citizens", protect, authorize("government"), getPendingCitizenRegistrations)
+router.post("/citizens/:citizenId/approve", protect, authorize("government"), approveCitizen)
+router.post("/citizens/:citizenId/reject", protect, authorize("government"), rejectCitizen)
+
+// Social Project Registration Reviews — approve/reject the REGISTRATION (org-level)
+// To approve individual projects use: PUT /api/social-projects/:projectId/approve
 router.get("/registrations/projects", protect, authorize("government"), getPendingSocialProjectRegistrations)
-// router.post(
-//   "/registrations/citizens/:registrationId/approve",
-//   protect,
-//   authorize("government"),
-//   approveCitizenRegistration,
-// )
-// router.post(
-//   "/registrations/citizens/:registrationId/reject",
-//   protect,
-//   authorize("government"),
-//   rejectCitizenRegistration,
-// )
 router.post(
   "/registrations/projects/:projectId/approve",
   protect,
@@ -200,8 +192,5 @@ router.post("/tokens/transfer", protect, authorize("government"), transferTokens
 router.get("/fund-requests", protect, authorize("government"), getPendingFundRequests)
 router.post("/fund-requests/:fundRequestId/approve", protect, authorize("government"), approveFundRequest)
 router.post("/fund-requests/:fundRequestId/reject", protect, authorize("government"), rejectFundRequest)
-
-// Audit Logs
-router.get("/audit-logs", protect, authorize("government"), getGovernmentAuditLogs)
 
 module.exports = router

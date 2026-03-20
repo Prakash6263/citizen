@@ -1,5 +1,4 @@
 const User = require("../models/User")
-const AuditLog = require("../models/AuditLog")
 const asyncHandler = require("../utils/asyncHandler")
 const ResponseHelper = require("../utils/responseHelper")
 const { validationResult } = require("express-validator")
@@ -61,17 +60,6 @@ const updateProfile = asyncHandler(async (req, res) => {
     return ResponseHelper.error(res, "User not found", 404)
   }
 
-  // Log audit trail
-  await AuditLog.logAction({
-    user: user._id,
-    action: "profile_update",
-    description: "User profile updated",
-    ip: req.ip,
-    userAgent: req.get("User-Agent"),
-    metadata: { updatedFields: Object.keys(updateFields) },
-    severity: "low",
-  })
-
   ResponseHelper.success(res, { user }, "Profile updated successfully")
 })
 
@@ -113,16 +101,6 @@ const uploadAvatar = asyncHandler(async (req, res) => {
 
     await user.save({ validateBeforeSave: false })
 
-    // Log audit trail
-    await AuditLog.logAction({
-      user: user._id,
-      action: "avatar_upload",
-      description: "Profile avatar uploaded",
-      ip: req.ip,
-      userAgent: req.get("User-Agent"),
-      severity: "low",
-    })
-
     ResponseHelper.success(
       res,
       {
@@ -159,16 +137,6 @@ const deleteAvatar = asyncHandler(async (req, res) => {
     // Remove avatar from user
     user.avatar = undefined
     await user.save({ validateBeforeSave: false })
-
-    // Log audit trail
-    await AuditLog.logAction({
-      user: user._id,
-      action: "avatar_delete",
-      description: "Profile avatar deleted",
-      ip: req.ip,
-      userAgent: req.get("User-Agent"),
-      severity: "low",
-    })
 
     ResponseHelper.success(res, null, "Avatar deleted successfully")
   } catch (error) {
@@ -237,17 +205,6 @@ const updateSettings = asyncHandler(async (req, res) => {
 
   await user.save({ validateBeforeSave: false })
 
-  // Log audit trail
-  await AuditLog.logAction({
-    user: user._id,
-    action: "settings_update",
-    description: "User settings updated",
-    ip: req.ip,
-    userAgent: req.get("User-Agent"),
-    metadata: { updatedSettings: Object.keys(settings) },
-    severity: "low",
-  })
-
   ResponseHelper.success(res, { settings: user.settings }, "Settings updated successfully")
 })
 
@@ -281,16 +238,6 @@ const changePassword = asyncHandler(async (req, res) => {
   user.password = newPassword
   await user.save()
 
-  // Log audit trail
-  await AuditLog.logAction({
-    user: user._id,
-    action: "password_change",
-    description: "Password changed successfully",
-    ip: req.ip,
-    userAgent: req.get("User-Agent"),
-    severity: "medium",
-  })
-
   ResponseHelper.success(res, null, "Password changed successfully")
 })
 
@@ -302,24 +249,18 @@ const changePassword = asyncHandler(async (req, res) => {
 const getUserActivity = asyncHandler(async (req, res) => {
   const { page = 1, limit = 20 } = req.query
 
-  const activities = await AuditLog.find({ user: req.user._id })
-    .sort({ createdAt: -1 })
-    .limit(limit * 1)
-    .skip((page - 1) * limit)
-    .select("action description createdAt ip severity")
-
-  const total = await AuditLog.countDocuments({ user: req.user._id })
-
-  ResponseHelper.paginated(
+  ResponseHelper.success(
     res,
-    activities,
     {
-      page: Number.parseInt(page),
-      limit: Number.parseInt(limit),
-      total,
-      totalPages: Math.ceil(total / limit),
+      activities: [],
+      pagination: {
+        page: Number.parseInt(page),
+        limit: Number.parseInt(limit),
+        total: 0,
+        totalPages: 0,
+      },
     },
-    "Activity retrieved successfully",
+    "Activity feature is disabled",
   )
 })
 
@@ -350,16 +291,6 @@ const deactivateAccount = asyncHandler(async (req, res) => {
   // Deactivate account
   user.isActive = false
   await user.save({ validateBeforeSave: false })
-
-  // Log audit trail
-  await AuditLog.logAction({
-    user: user._id,
-    action: "account_deactivate",
-    description: "User account deactivated",
-    ip: req.ip,
-    userAgent: req.get("User-Agent"),
-    severity: "high",
-  })
 
   ResponseHelper.success(res, null, "Account deactivated successfully")
 })
@@ -397,16 +328,6 @@ const deleteAccount = asyncHandler(async (req, res) => {
     if (user.avatar && user.avatar.public_id) {
       await localStorageService.deleteFile(user.avatar.public_id, "municipality/avatars")
     }
-
-    // Log audit trail before deletion
-    await AuditLog.logAction({
-      user: user._id,
-      action: "account_delete",
-      description: "User account deleted permanently",
-      ip: req.ip,
-      userAgent: req.get("User-Agent"),
-      severity: "critical",
-    })
 
     // Delete user account
     await User.findByIdAndDelete(req.user._id)

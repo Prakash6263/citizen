@@ -5,7 +5,6 @@ const SocialProjectRegistration = require("../models/SocialProjectRegistration")
 const TokenClaim = require("../models/TokenClaim")
 const FundRequest = require("../models/FundRequest")
 const TokenTransaction = require("../models/TokenTransaction")
-const AuditLog = require("../models/AuditLog")
 const TokenRequest = require("../models/TokenRequest") // Added TokenRequest model import
 const { generateUniqueId } = require("../utils/helpers")
 const { sendEmail } = require("../utils/emailService")
@@ -163,20 +162,130 @@ const updateGovernmentProfile = asyncHandler(async (req, res) => {
 
 // REGISTRATION REQUEST REVIEW
 
-// @desc    Get pending citizen registrations (city-scoped) – CITIZENS DON'T NEED APPROVAL
+// @desc    Get citizens pending approval for token operations (city-scoped)
 // @route   GET /api/government/registrations/citizens
 // @access  Private (government)
 const getPendingCitizenRegistrations = asyncHandler(async (req, res) => {
-  // Citizens no longer need government approval - they are approved automatically on signup
-  // This endpoint is deprecated but kept for backward compatibility
-  return successResponse(res, "Citizen registrations: No pending approvals (auto-approved on signup)", {
-    registrations: [],
-    pagination: {
-      page: 1,
-      limit: 20,
-      total: 0,
+  const government = await Government.findOne({ userId: req.user._id })
+  if (!government) return errorResponse(res, "Government profile not found", 404)
+
+  const { page = 1, limit = 20, approvalStatus = "pending" } = req.query
+  const skip = (page - 1) * limit
+
+  // Fetch citizens from the same city with pending approval status
+  const filter = {
+    city: { $regex: `^${government.city}$`, $options: "i" },
+    userType: "citizen",
+    approvalStatus: approvalStatus,
+  }
+
+  const citizens = await User.find(filter)
+    .select("fullName email username city country province approvalStatus createdAt tokenBalance")
+    .skip(skip)
+    .limit(Number(limit))
+    .sort({ createdAt: -1 })
+    .lean()
+
+  const total = await User.countDocuments(filter)
+
+  successResponse(res, "Citizens retrieved", {
+    citizens,
+    pagination: { page: Number(page), limit: Number(limit), total },
+  })
+})
+
+// @desc    Approve citizen for token operations
+// @route   POST /api/government/citizens/:citizenId/approve
+// @access  Private (government)
+const approveCitizen = asyncHandler(async (req, res) => {
+  const { citizenId } = req.params
+  const { approvalNotes } = req.body
+
+  const government = await Government.findOne({ userId: req.user._id })
+  if (!government) return errorResponse(res, "Government profile not found", 404)
+
+  const citizen = await User.findById(citizenId)
+  if (!citizen) return errorResponse(res, "Citizen not found", 404)
+
+  // Verify it's a citizen user type
+  if (citizen.userType !== "citizen") {
+    return errorResponse(res, "User is not a citizen", 400)
+  }
+
+  // City-based authorization check (case-insensitive)
+  if (citizen.city?.toLowerCase() !== government.city?.toLowerCase()) {
+    return errorResponse(res, "Cannot approve citizen from a different city", 403)
+  }
+
+  if (citizen.approvalStatus === "approved") {
+    return errorResponse(res, "Citizen is already approved", 400)
+  }
+
+  // Update citizen approval status
+  citizen.approvalStatus = "approved"
+  citizen.approvalStatusUpdatedAt = new Date()
+  citizen.approvalStatusUpdatedBy = req.user._id
+  await citizen.save()
+
+  // Send approval email
+  await sendEmail({
+    email: citizen.email,
+    subject: "Account Approved for Token Operations",
+    template: "citizenApproved",
+    data: {
+      citizenName: citizen.fullName,
+      approvalNotes,
     },
   })
+
+  successResponse(res, "Citizen approved for token operations", { citizen })
+})
+
+// @desc    Reject citizen for token operations
+// @route   POST /api/government/citizens/:citizenId/reject
+// @access  Private (government)
+const rejectCitizen = asyncHandler(async (req, res) => {
+  const { citizenId } = req.params
+  const { rejectionReason } = req.body
+
+  if (!rejectionReason) {
+    return errorResponse(res, "Rejection reason is required", 400)
+  }
+
+  const government = await Government.findOne({ userId: req.user._id })
+  if (!government) return errorResponse(res, "Government profile not found", 404)
+
+  const citizen = await User.findById(citizenId)
+  if (!citizen) return errorResponse(res, "Citizen not found", 404)
+
+  // Verify it's a citizen user type
+  if (citizen.userType !== "citizen") {
+    return errorResponse(res, "User is not a citizen", 400)
+  }
+
+  // City-based authorization check (case-insensitive)
+  if (citizen.city?.toLowerCase() !== government.city?.toLowerCase()) {
+    return errorResponse(res, "Cannot reject citizen from a different city", 403)
+  }
+
+  // Update citizen approval status
+  citizen.approvalStatus = "rejected"
+  citizen.approvalStatusUpdatedAt = new Date()
+  citizen.approvalStatusUpdatedBy = req.user._id
+  await citizen.save()
+
+  // Send rejection email
+  await sendEmail({
+    email: citizen.email,
+    subject: "Account Not Approved for Token Operations",
+    template: "citizenRejected",
+    data: {
+      citizenName: citizen.fullName,
+      rejectionReason,
+    },
+  })
+
+  successResponse(res, "Citizen rejected for token operations", { citizen })
 })
 
 
@@ -191,25 +300,27 @@ const getPendingSocialProjectRegistrations = asyncHandler(async (req, res) => {
   const { page = 1, limit = 20, status = "pending" } = req.query
   const skip = (page - 1) * limit
 
-  // Fetch social project registrations from the same city
-  const registrations = await SocialProjectRegistration.find({
-    city: government.city,
-    country: government.country,
-    state: government.province,
+  console.log("[v0] getPendingSocialProjectRegistrations - government city:", government.city, "province:", government.province, "country:", government.country, "status filter:", status)
+
+  // Use case-insensitive regex on city/state/country so casing differences never cause mismatches
+  const filter = {
+    city: { $regex: new RegExp(`^${government.city.trim()}$`, "i") },
     status: status,
-  })
+  }
+
+  console.log("[v0] getPendingSocialProjectRegistrations - filter:", JSON.stringify(filter))
+
+  // Fetch social project registrations from the same city
+  const registrations = await SocialProjectRegistration.find(filter)
     .populate("user", "fullName email city")
     .skip(skip)
     .limit(Number(limit))
     .sort({ submittedAt: -1 })
     .lean()
 
-  const total = await SocialProjectRegistration.countDocuments({
-    city: government.city,
-    country: government.country,
-    state: government.province,
-    status: status,
-  })
+  const total = await SocialProjectRegistration.countDocuments(filter)
+
+  console.log("[v0] getPendingSocialProjectRegistrations - found:", total, "registrations")
 
   // Format response with projects
   const formattedRegistrations = registrations.map((reg) => ({
@@ -246,8 +357,8 @@ const approveSocialProjectRegistration = asyncHandler(async (req, res) => {
   const project = await SocialProjectRegistration.findById(projectId).populate("user", "fullName email")
   if (!project) return errorResponse(res, "Project registration not found", 404)
 
-  // City-based authorization check
-  if (project.city !== government.city || project.country !== government.country || project.state !== government.province) {
+  // City-based authorization check (case-insensitive)
+  if (project.city?.toLowerCase() !== government.city?.toLowerCase()) {
     return errorResponse(res, "Cannot approve project from a different city", 403)
   }
 
@@ -281,30 +392,8 @@ const approveSocialProjectRegistration = asyncHandler(async (req, res) => {
     isGovernmentApproveProject: true,
   })
 
-  // Update all projects under this registration to be visible in this city
-  if (project.projects && project.projects.length > 0) {
-    project.projects.forEach((proj) => {
-      if (proj.projectStatus === "pending_approval") {
-        proj.projectStatus = "active"
-        proj.approvedBy = req.user._id
-        proj.approvedAt = new Date()
-      }
-    })
-    await project.save()
-  }
-
-  // Log audit trail
-  await AuditLog.logAction({
-    user: req.user._id,
-    action: "approve_social_project_registration",
-    description: `Approved social project registration: ${project.projectOrganizationName}`,
-    governmentId: government._id,
-    entityType: "social_project",
-    entityId: project._id,
-    city: government.city,
-    ip: req.ip,
-    userAgent: req.get("user-agent"),
-  })
+  // NOTE: Individual projects inside this registration still require separate government approval
+  // via PUT /api/social-projects/:projectId/approve before they become visible to citizens.
 
   // Send approval email
   await sendEmail({
@@ -330,8 +419,8 @@ const rejectSocialProjectRegistration = asyncHandler(async (req, res) => {
   const project = await SocialProjectRegistration.findById(projectId).populate("user", "fullName email")
   if (!project) return errorResponse(res, "Project registration not found", 404)
 
-  // City-based authorization check
-  if (project.city !== government.city || project.country !== government.country || project.state !== government.province) {
+  // City-based authorization check (case-insensitive)
+  if (project.city?.toLowerCase() !== government.city?.toLowerCase()) {
     return errorResponse(res, "Cannot reject project from a different city", 403)
   }
 
@@ -340,6 +429,7 @@ const rejectSocialProjectRegistration = asyncHandler(async (req, res) => {
   }
 
   project.status = "rejected"
+  project.approvedBy = req.user._id
   project.rejectionReason = rejectionReason
   await project.save()
 
@@ -356,19 +446,6 @@ const rejectSocialProjectRegistration = asyncHandler(async (req, res) => {
     approvalRecord.rejectionReason = rejectionReason
     await approvalRecord.save()
   }
-
-  // Log audit trail
-  await AuditLog.logAction({
-    user: req.user._id,
-    action: "reject_social_project_registration",
-    description: `Rejected social project registration: ${rejectionReason || "No reason provided"}`,
-    governmentId: government._id,
-    entityType: "social_project",
-    entityId: project._id,
-    city: government.city,
-    ip: req.ip,
-    userAgent: req.get("user-agent"),
-  })
 
   // Send rejection email
   await sendEmail({
@@ -460,19 +537,6 @@ const approveTokenClaim = asyncHandler(async (req, res) => {
   // Update citizen wallet
   await User.findByIdAndUpdate(claim.claimant._id, { $inc: { tokenBalance: claim.calculatedTokens } }, { new: true })
 
-  // Log audit trail
-  await AuditLog.logAction({
-    user: req.user._id,
-    action: "approve_token_claim",
-    description: `Approved token claim: ${claim.calculatedTokens} tokens for ${claim.claimant.fullName}`,
-    governmentId: government._id,
-    entityType: "token_claim",
-    entityId: claim._id,
-    city: government.city,
-    ip: req.ip,
-    userAgent: req.get("user-agent"),
-  })
-
   // Send approval email
   await sendEmail({
     email: claim.claimant.email,
@@ -512,19 +576,6 @@ const rejectTokenClaim = asyncHandler(async (req, res) => {
   claim.reviewNotes = reviewNotes
   await claim.save()
 
-  // Log audit trail
-  await AuditLog.logAction({
-    user: req.user._id,
-    action: "reject_token_claim",
-    description: `Rejected token claim: ${rejectionReason || "No reason provided"}`,
-    governmentId: government._id,
-    entityType: "token_claim",
-    entityId: claim._id,
-    city: government.city,
-    ip: req.ip,
-    userAgent: req.get("user-agent"),
-  })
-
   // Send rejection email
   await sendEmail({
     email: claim.claimant.email,
@@ -557,9 +608,9 @@ const issueTokens = asyncHandler(async (req, res) => {
     return errorResponse(res, "Cannot issue tokens to citizen from a different city", 403)
   }
 
-  // Check if citizen is approved
-  if (!citizen.isGovernmentApproved) {
-    return errorResponse(res, "Citizen is not approved", 400)
+  // Check if citizen is approved for token operations
+  if (citizen.approvalStatus !== "approved") {
+    return errorResponse(res, "Citizen must be approved before receiving tokens", 403)
   }
 
   // Create token transaction
@@ -583,19 +634,6 @@ const issueTokens = asyncHandler(async (req, res) => {
     { new: true },
   )
 
-  // Log audit trail
-  await AuditLog.logAction({
-    user: req.user._id,
-    action: "issue_tokens",
-    description: `Issued ${tokenAmount} tokens to ${citizen.fullName}`,
-    governmentId: government._id,
-    entityType: "citizen",
-    entityId: citizen._id,
-    city: government.city,
-    ip: req.ip,
-    userAgent: req.get("user-agent"),
-  })
-
   successResponse(res, "Tokens issued successfully", { transaction, citizen: updatedCitizen })
 })
 
@@ -617,6 +655,14 @@ const transferTokens = asyncHandler(async (req, res) => {
 
   if (fromCitizen.city !== government.city || toCitizen.city !== government.city) {
     return errorResponse(res, "Cannot transfer tokens to/from citizens in a different city", 403)
+  }
+
+  // Check if both parties are approved for token operations
+  if (fromCitizen.approvalStatus !== "approved") {
+    return errorResponse(res, "Sending citizen must be approved for token transfers", 403)
+  }
+  if (toCitizen.approvalStatus !== "approved") {
+    return errorResponse(res, "Receiving citizen must be approved for token transfers", 403)
   }
 
   // Check sender balance
@@ -646,19 +692,6 @@ const transferTokens = asyncHandler(async (req, res) => {
     { $inc: { tokenBalance: tokenAmount } },
     { new: true },
   )
-
-  // Log audit trail
-  await AuditLog.logAction({
-    user: req.user._id,
-    action: "transfer_tokens",
-    description: `Transferred ${tokenAmount} tokens from ${fromCitizen.fullName} to ${toCitizen.fullName}`,
-    governmentId: government._id,
-    entityType: "citizen",
-    entityId: toCitizen._id,
-    city: government.city,
-    ip: req.ip,
-    userAgent: req.get("user-agent"),
-  })
 
   successResponse(res, "Tokens transferred successfully", { transaction })
 })
@@ -713,6 +746,11 @@ const approveFundRequest = asyncHandler(async (req, res) => {
     return errorResponse(res, "Cannot approve fund request from a different city", 403)
   }
 
+  // Verify project is approved for token operations
+  if (fundRequest.projectId.approvalStatus !== "approved") {
+    return errorResponse(res, "Project must be approved before fund requests can be processed", 403)
+  }
+
   // Create token transaction for fiat conversion
   const transaction = await TokenTransaction.create({
     transactionId: generateUniqueId("TXN"),
@@ -743,31 +781,6 @@ const approveFundRequest = asyncHandler(async (req, res) => {
     { new: true },
   )
 
-  // Log audit trail
-  await AuditLog.logAction({
-    user: req.user._id,
-    action: "approve_fund_request",
-    description: `Approved fund request: ${fundRequest.requestedFiatAmount} ${fundRequest.fiatCurrency}`,
-    governmentId: government._id,
-    entityType: "fund_request",
-    entityId: fundRequest._id,
-    city: government.city,
-    ip: req.ip,
-    userAgent: req.get("user-agent"),
-  })
-
-  // Send approval email
-  await sendEmail({
-    email: fundRequest.requestedBy.email,
-    subject: "Fund Request Approved",
-    template: "fundRequestApproved",
-    data: {
-      projectName: fundRequest.projectId.projectOrganizationName,
-      fiatAmount: fundRequest.requestedFiatAmount,
-      currency: fundRequest.fiatCurrency,
-    },
-  })
-
   successResponse(res, "Fund request approved", { fundRequest, transaction })
 })
 
@@ -795,19 +808,6 @@ const rejectFundRequest = asyncHandler(async (req, res) => {
   fundRequest.reviewNotes = reviewNotes
   await fundRequest.save()
 
-  // Log audit trail
-  await AuditLog.logAction({
-    user: req.user._id,
-    action: "reject_fund_request",
-    description: `Rejected fund request: ${rejectionReason || "No reason provided"}`,
-    governmentId: government._id,
-    entityType: "fund_request",
-    entityId: fundRequest._id,
-    city: government.city,
-    ip: req.ip,
-    userAgent: req.get("user-agent"),
-  })
-
   // Send rejection email
   await sendEmail({
     email: fundRequest.requestedBy.email,
@@ -820,35 +820,6 @@ const rejectFundRequest = asyncHandler(async (req, res) => {
   })
 
   successResponse(res, "Fund request rejected", { fundRequest })
-})
-
-// AUDIT LOGGING
-
-// @desc    Get government audit logs
-// @route   GET /api/government/audit-logs
-// @access  Private (government)
-const getGovernmentAuditLogs = asyncHandler(async (req, res) => {
-  const government = await Government.findOne({ userId: req.user._id })
-  if (!government) return errorResponse(res, "Government profile not found", 404)
-
-  const { page = 1, limit = 50 } = req.query
-
-  const logs = await AuditLog.find({ governmentId: government._id })
-    .populate("user", "fullName email")
-    .skip((page - 1) * limit)
-    .limit(Number(limit))
-    .sort({ createdAt: -1 })
-
-  const total = await AuditLog.countDocuments({ governmentId: government._id })
-
-  successResponse(res, "Audit logs retrieved", {
-    logs,
-    pagination: {
-      page: Number(page),
-      limit: Number(limit),
-      total,
-    },
-  })
 })
 
 // TOKEN REQUEST REVIEW
@@ -950,19 +921,6 @@ const approveTokenRequest = asyncHandler(async (req, res) => {
       tokenTransaction: transaction._id,
     })
 
-    // Audit log
-    await AuditLog.logAction({
-      user: req.user._id,
-      action: "approve_token_request",
-      description: `Approved token request ${tokenRequest.tokenRequestId} for ${tokenRequest.tokenAmount} tokens`,
-      governmentId: government._id,
-      entityType: "token_request",
-      entityId: tokenRequest._id,
-      city: government.city,
-      ip: req.ip,
-      userAgent: req.get("user-agent"),
-    })
-
     // Send approval email to citizen
     await sendEmail({
       email: citizen.email,
@@ -1022,19 +980,6 @@ const rejectTokenRequest = asyncHandler(async (req, res) => {
       reviewNotes: reviewNotes || "",
     })
 
-    // Audit log
-    await AuditLog.logAction({
-      user: req.user._id,
-      action: "reject_token_request",
-      description: `Rejected token request ${tokenRequest.tokenRequestId}: ${rejectionReason}`,
-      governmentId: government._id,
-      entityType: "token_request",
-      entityId: tokenRequest._id,
-      city: government.city,
-      ip: req.ip,
-      userAgent: req.get("user-agent"),
-    })
-
     // Send rejection email to citizen
     await sendEmail({
       email: citizen.email,
@@ -1060,12 +1005,15 @@ module.exports = {
   registerGovernmentStep2,
   getGovernmentProfile,
   updateGovernmentProfile,
-  // New
+  // Citizen approval for token operations
   getPendingCitizenRegistrations,
+  approveCitizen,
+  rejectCitizen,
+  // Social project approval
   getPendingSocialProjectRegistrations,
- 
   approveSocialProjectRegistration,
   rejectSocialProjectRegistration,
+  // Token operations
   getPendingTokenClaims,
   approveTokenClaim,
   rejectTokenClaim,
@@ -1074,7 +1022,6 @@ module.exports = {
   getPendingFundRequests,
   approveFundRequest,
   rejectFundRequest,
-  getGovernmentAuditLogs,
   getPendingTokenRequests,
   approveTokenRequest,
   rejectTokenRequest,

@@ -99,7 +99,7 @@ const socialProjectRegistrationSchema = new mongoose.Schema(
       trim: true,
     },
 
-    // Registration Status
+    // Registration Status — must be approved by government before user can create projects
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],
@@ -225,9 +225,9 @@ const socialProjectRegistrationSchema = new mongoose.Schema(
   },
 )
 
-// Indexes
+// Indexes — { city, status } compound covers status-only queries as prefix; no standalone needed
 socialProjectRegistrationSchema.index({ user: 1 })
-socialProjectRegistrationSchema.index({ status: 1 })
 socialProjectRegistrationSchema.index({ submittedAt: -1 })
+socialProjectRegistrationSchema.index({ city: 1, status: 1 })
 
 module.exports = mongoose.model("SocialProjectRegistration", socialProjectRegistrationSchema)
