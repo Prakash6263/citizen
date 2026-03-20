@@ -24,6 +24,11 @@ const createFundRequest = asyncHandler(async (req, res) => {
     return errorResponse(res, "Not authorized to create fund request for this project", 403)
   }
 
+  // Check if project is approved for token operations
+  if (project.approvalStatus !== "approved") {
+    return errorResponse(res, "Your project must be approved before requesting funds", 403)
+  }
+
   // Validate required fields
   if (!tokenAmount || !requestedFiatAmount) {
     return errorResponse(res, "tokenAmount and requestedFiatAmount are required", 400)

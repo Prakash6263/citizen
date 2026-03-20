@@ -91,6 +91,20 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
+    // Approval status for token operations (does not affect visibility)
+    approvalStatus: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
+    },
+
+    approvalStatusUpdatedAt: Date,
+
+    approvalStatusUpdatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
     // Superadmin gate for government users
     isSuperAdminVerified: {
       type: Boolean,
@@ -223,6 +237,8 @@ userSchema.index({ isActive: 1 })
 userSchema.index({ isSuperAdminVerified: 1 })
 userSchema.index({ isRegistrationProjectDone: 1 })
 userSchema.index({ createdAt: -1 })
+userSchema.index({ approvalStatus: 1 })
+userSchema.index({ city: 1, approvalStatus: 1 })
 
 // Virtual for user's full profile URL
 userSchema.virtual("profileUrl").get(function () {

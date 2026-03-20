@@ -119,6 +119,8 @@ const {
   getGovernmentProfile,
   updateGovernmentProfile,
   getPendingCitizenRegistrations,
+  approveCitizen,
+  rejectCitizen,
   getPendingSocialProjectRegistrations,
   approveSocialProjectRegistration,
   rejectSocialProjectRegistration,
@@ -151,21 +153,13 @@ router.put("/register/step-2/:id", governmentRegisterStep2Validation, handleVali
 router.get("/profile", protect, authorize("government"), getGovernmentProfile)
 router.put("/profile", protect, authorize("government"), updateGovernmentProfile)
 
-// Registration Reviews
+// Citizen Approval for Token Operations
 router.get("/registrations/citizens", protect, authorize("government"), getPendingCitizenRegistrations)
+router.post("/citizens/:citizenId/approve", protect, authorize("government"), approveCitizen)
+router.post("/citizens/:citizenId/reject", protect, authorize("government"), rejectCitizen)
+
+// Social Project Registration Reviews
 router.get("/registrations/projects", protect, authorize("government"), getPendingSocialProjectRegistrations)
-// router.post(
-//   "/registrations/citizens/:registrationId/approve",
-//   protect,
-//   authorize("government"),
-//   approveCitizenRegistration,
-// )
-// router.post(
-//   "/registrations/citizens/:registrationId/reject",
-//   protect,
-//   authorize("government"),
-//   rejectCitizenRegistration,
-// )
 router.post(
   "/registrations/projects/:projectId/approve",
   protect,

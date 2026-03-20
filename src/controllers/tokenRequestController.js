@@ -14,6 +14,11 @@ const crypto = require("crypto")
 // @route   POST /api/token-requests
 // @access  Private (citizen)
 const createTokenRequest = asyncHandler(async (req, res) => {
+  // Check if citizen is approved for token operations
+  if (req.user.approvalStatus !== "approved") {
+    return errorResponse(res, "Your account must be approved before requesting tokens", 403)
+  }
+
   // Validate file upload - proof document is required
   if (!req.file) {
     return errorResponse(res, "Proof document is required (image or PDF - tax or eligibility proof)", 400)
@@ -67,30 +72,6 @@ const createTokenRequest = asyncHandler(async (req, res) => {
       tokenRequestId: tokenRequest.tokenRequestId,
       savedCity: tokenRequest.city,
       status: tokenRequest.status,
-    })
-
-    // Audit log
-    await AuditLog.logAction({
-      user: req.user._id,
-      action: "create_token_request",
-      description: `Submitted token request with proof document`,
-      entityType: "token_request",
-      entityId: tokenRequest._id,
-      city: req.user.city,
-      ip: req.ip,
-      userAgent: req.get("user-agent"),
-    })
-
-    // Audit log
-    await AuditLog.logAction({
-      user: req.user._id,
-      action: "create_token_request",
-      description: `Submitted token request with proof document`,
-      entityType: "token_request",
-      entityId: tokenRequest._id,
-      city: req.user.city,
-      ip: req.ip,
-      userAgent: req.get("user-agent"),
     })
 
     // Send confirmation email
@@ -419,6 +400,11 @@ const getPendingClaims = asyncHandler(async (req, res) => {
 // @route   POST /api/token-requests/:tokenRequestId/claim
 // @access  Private (citizen)
 const claimApprovedTokens = asyncHandler(async (req, res) => {
+  // Check if citizen is approved for token operations
+  if (req.user.approvalStatus !== "approved") {
+    return errorResponse(res, "Your account must be approved before claiming tokens", 403)
+  }
+
   const { tokenRequestId } = req.params
 
   // Find the token request
@@ -507,6 +493,11 @@ const claimApprovedTokens = asyncHandler(async (req, res) => {
 // @route   POST /api/token-requests/claim-all
 // @access  Private (citizen)
 const claimAllPendingTokens = asyncHandler(async (req, res) => {
+  // Check if citizen is approved for token operations
+  if (req.user.approvalStatus !== "approved") {
+    return errorResponse(res, "Your account must be approved before claiming tokens", 403)
+  }
+
   // Find all pending claims for this citizen
   const pendingClaims = await TokenRequest.find({
     requestedBy: req.user._id,

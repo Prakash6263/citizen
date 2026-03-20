@@ -99,11 +99,25 @@ const socialProjectRegistrationSchema = new mongoose.Schema(
       trim: true,
     },
 
-    // Registration Status
+    // Registration Status (legacy field for backward compatibility)
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],
+      default: "approved", // Auto-approve for visibility
+    },
+
+    // Approval status for token operations (does not affect visibility)
+    approvalStatus: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
       default: "pending",
+    },
+
+    approvalStatusUpdatedAt: Date,
+
+    approvalStatusUpdatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
     },
 
     // Approval Information
@@ -229,5 +243,7 @@ const socialProjectRegistrationSchema = new mongoose.Schema(
 socialProjectRegistrationSchema.index({ user: 1 })
 socialProjectRegistrationSchema.index({ status: 1 })
 socialProjectRegistrationSchema.index({ submittedAt: -1 })
+socialProjectRegistrationSchema.index({ approvalStatus: 1 })
+socialProjectRegistrationSchema.index({ city: 1, approvalStatus: 1 })
 
 module.exports = mongoose.model("SocialProjectRegistration", socialProjectRegistrationSchema)

@@ -2141,11 +2141,82 @@
       ]
     },
     {
-      "name": "17. CITIZENS MANAGEMENT (Government)",
-      "description": "View and manage citizen accounts",
+      "name": "17. CITIZENS APPROVAL FOR TOKEN OPERATIONS (Government)",
+      "description": "Approve or reject citizens for token-related operations. Citizens are visible immediately but require approval for token requests/claims/transfers.",
       "item": [
         {
-          "name": "17.1 - Get All Citizens",
+          "name": "17.1 - Get Citizens Pending Approval",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/government/registrations/citizens?approvalStatus=pending&page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "government", "registrations", "citizens"],
+              "query": [
+                {
+                  "key": "approvalStatus",
+                  "value": "pending"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "17.2 - Approve Citizen for Token Operations",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/government/citizens/:citizenId/approve",
+              "host": ["{{base_url}}"],
+              "path": ["api", "government", "citizens", ":citizenId", "approve"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"approvalNotes\": \"Citizen verified and approved for token operations\"\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "17.3 - Reject Citizen for Token Operations",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/government/citizens/:citizenId/reject",
+              "host": ["{{base_url}}"],
+              "path": ["api", "government", "citizens", ":citizenId", "reject"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rejectionReason\": \"Documentation incomplete or verification failed\"\n}\n"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "17.4 - Get All Citizens",
           "request": {
             "method": "GET",
             "header": [],
@@ -2168,7 +2239,7 @@
           "response": []
         },
         {
-          "name": "17.2 - Get Citizen Details",
+          "name": "17.5 - Get Citizen Details",
           "request": {
             "method": "GET",
             "header": [],

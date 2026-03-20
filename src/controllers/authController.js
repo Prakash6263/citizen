@@ -349,6 +349,8 @@ const forgotPassword = asyncHandler(async (req, res) => {
         otp: resetOTP,
       },
     })
+
+    ResponseHelper.success(res, null, "If an account with that email exists, a password reset code has been sent.")
   } catch (error) {
     console.error("Email sending failed:", error)
     user.resetPasswordOTP = undefined
@@ -357,8 +359,6 @@ const forgotPassword = asyncHandler(async (req, res) => {
 
     return ResponseHelper.error(res, "Email could not be sent. Please try again later.", 500)
   }
-
-  ResponseHelper.success(res, null, "If an account with that email exists, a password reset code has been sent.")
 })
 
 /**
