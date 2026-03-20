@@ -1,0 +1,721 @@
+{
+  "info": {
+    "_postman_id": "citizen-project-approval-flow",
+    "name": "Citizen & Social Project Approval Flow",
+    "description": "Complete flow for citizen registration, social project creation, government approval, and token operations.\n\n## Flow Summary:\n\n### Citizen Flow:\n1. Citizen registers account - can access everything immediately\n2. Citizen CANNOT request tokens or support projects until approved by government\n3. Government approves citizen for token operations\n4. Citizen can now request tokens and support approved projects\n\n### Social Project Flow:\n1. Social user registers account - no government approval needed for registration\n2. Social user creates project registration - visible to same-city citizens immediately\n3. Citizens CANNOT support project with tokens until project is approved by government\n4. Government approves project for token operations\n5. Citizens can now support the project with tokens\n\n### Key Rules:\n- Visibility is NOT blocked by approval status\n- Approval is ONLY required for token-related operations\n- All approvals are city-scoped (government can only approve entities in their city)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "citizen_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "social_user_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "government_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "citizen_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "project_registration_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "project_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. CITIZEN REGISTRATION & ACCESS",
+      "description": "Citizen registers and can access everything (visibility not blocked)",
+      "item": [
+        {
+          "name": "1.1 - Register Citizen",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Test Citizen\",\n  \"email\": \"citizen@example.com\",\n  \"password\": \"Password123!\",\n  \"username\": \"testcitizen\",\n  \"country\": \"Argentina\",\n  \"province\": \"Buenos Aires\",\n  \"city\": \"La Plata\",\n  \"userType\": \"citizen\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Register a new citizen. Citizen is visible immediately but approvalStatus is 'pending'."
+          },
+          "response": []
+        },
+        {
+          "name": "1.2 - Citizen Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.accessToken) {",
+                  "    pm.collectionVariables.set('citizen_token', jsonData.data.accessToken);",
+                  "    pm.collectionVariables.set('citizen_id', jsonData.data.user._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"citizen@example.com\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Login as citizen. Check approvalStatus in response - should be 'pending'."
+          },
+          "response": []
+        },
+        {
+          "name": "1.3 - Get Profile (Accessible)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{citizen_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "me"]
+            },
+            "description": "Citizen can access their profile - visibility is NOT blocked."
+          },
+          "response": []
+        },
+        {
+          "name": "1.4 - View Projects in My City (Accessible)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{citizen_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/social-projects/citizen/my-city",
+              "host": ["{{base_url}}"],
+              "path": ["api", "social-projects", "citizen", "my-city"]
+            },
+            "description": "Citizen can view projects in their city - visibility is NOT blocked."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. CITIZEN TOKEN OPERATIONS (BLOCKED)",
+      "description": "Citizen tries token operations BEFORE approval - should be BLOCKED",
+      "item": [
+        {
+          "name": "2.1 - Request Tokens (SHOULD FAIL - Not Approved)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{citizen_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "proofDocument",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/token-requests",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-requests"]
+            },
+            "description": "EXPECTED: 403 - 'Your account must be approved before requesting tokens'"
+          },
+          "response": []
+        },
+        {
+          "name": "2.2 - Support Project (SHOULD FAIL - Not Approved)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{citizen_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokensToSpend\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/projects/:projectId/support",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", ":projectId", "support"]
+            },
+            "description": "EXPECTED: 403 - 'Your account must be approved before supporting projects'"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. SOCIAL PROJECT REGISTRATION",
+      "description": "Social user registers and creates project - visible immediately without government approval",
+      "item": [
+        {
+          "name": "3.1 - Register Social User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Social Project Manager\",\n  \"email\": \"socialproject@example.com\",\n  \"password\": \"Password123!\",\n  \"username\": \"socialmanager\",\n  \"country\": \"Argentina\",\n  \"province\": \"Buenos Aires\",\n  \"city\": \"La Plata\",\n  \"userType\": \"social_project\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Register social project user. No government approval needed for registration."
+          },
+          "response": []
+        },
+        {
+          "name": "3.2 - Social User Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.accessToken) {",
+                  "    pm.collectionVariables.set('social_user_token', jsonData.data.accessToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"socialproject@example.com\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3.3 - Submit Project Registration",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data._id) {",
+                  "    pm.collectionVariables.set('project_registration_id', jsonData.data._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{social_user_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectOrganizationName\": \"Community Help Foundation\",\n  \"allowedProjectTypes\": [\"social\", \"environment\"],\n  \"responsiblePersonFullName\": \"John Manager\",\n  \"personPositionRole\": \"Director\",\n  \"contactNumber\": \"+54 11 1234-5678\",\n  \"emailAddress\": \"contact@communityfoundation.org\",\n  \"registrationNotes\": \"Non-profit organization focused on community development\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/social-projects/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "social-projects", "register"]
+            },
+            "description": "Submit project registration. Status is auto-approved for VISIBILITY but approvalStatus is 'pending' for TOKEN OPERATIONS."
+          },
+          "response": []
+        },
+        {
+          "name": "3.4 - Create Project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.project && jsonData.data.project._id) {",
+                  "    pm.collectionVariables.set('project_id', jsonData.data.project._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{social_user_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectName\": \"Community Garden Initiative\",\n  \"projectDescription\": \"Creating urban gardens in underserved neighborhoods\",\n  \"projectType\": \"social\",\n  \"fundingGoal\": 100,\n  \"impactDescription\": \"Will benefit 500+ families with fresh produce\",\n  \"timeline\": \"6 months\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/social-projects/projects",
+              "host": ["{{base_url}}"],
+              "path": ["api", "social-projects", "projects"]
+            },
+            "description": "Create a project. Project is VISIBLE to same-city citizens immediately."
+          },
+          "response": []
+        },
+        {
+          "name": "3.5 - Citizen Views Project (VISIBLE)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{citizen_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/social-projects/citizen/my-city",
+              "host": ["{{base_url}}"],
+              "path": ["api", "social-projects", "citizen", "my-city"]
+            },
+            "description": "Citizen can VIEW the project - visibility is NOT blocked by approval status."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. PROJECT SUPPORT (BLOCKED)",
+      "description": "Citizen tries to support project BEFORE project is approved - should be BLOCKED",
+      "item": [
+        {
+          "name": "4.1 - Support Project (SHOULD FAIL - Project Not Approved)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{citizen_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokensToSpend\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/projects/{{project_id}}/support",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", "{{project_id}}", "support"]
+            },
+            "description": "EXPECTED: 403 - 'This project must be approved before receiving token support' (even if citizen was approved, project is not)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. GOVERNMENT APPROVALS",
+      "description": "Government approves both citizen and project for token operations",
+      "item": [
+        {
+          "name": "5.1 - Government Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.accessToken) {",
+                  "    pm.collectionVariables.set('government_token', jsonData.data.accessToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"government@laplata.gov\",\n  \"password\": \"GovPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Login as government user (must be from same city: La Plata)"
+          },
+          "response": []
+        },
+        {
+          "name": "5.2 - Get Pending Citizens",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{government_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/government/registrations/citizens?approvalStatus=pending",
+              "host": ["{{base_url}}"],
+              "path": ["api", "government", "registrations", "citizens"],
+              "query": [
+                {
+                  "key": "approvalStatus",
+                  "value": "pending"
+                }
+              ]
+            },
+            "description": "Get citizens pending approval for token operations (same city only)"
+          },
+          "response": []
+        },
+        {
+          "name": "5.3 - Approve Citizen for Token Operations",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{government_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"approvalNotes\": \"Citizen verified for token operations\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/government/citizens/{{citizen_id}}/approve",
+              "host": ["{{base_url}}"],
+              "path": ["api", "government", "citizens", "{{citizen_id}}", "approve"]
+            },
+            "description": "Approve citizen for token operations. Citizen can now request tokens and support approved projects."
+          },
+          "response": []
+        },
+        {
+          "name": "5.4 - Get Pending Projects",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{government_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/government/registrations/projects?status=approved",
+              "host": ["{{base_url}}"],
+              "path": ["api", "government", "registrations", "projects"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "approved"
+                }
+              ]
+            },
+            "description": "Get project registrations (status=approved means visible, but may need approvalStatus check)"
+          },
+          "response": []
+        },
+        {
+          "name": "5.5 - Approve Project for Token Operations",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{government_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"approvalNotes\": \"Project verified for receiving token support\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/government/registrations/projects/{{project_registration_id}}/approve",
+              "host": ["{{base_url}}"],
+              "path": ["api", "government", "registrations", "projects", "{{project_registration_id}}", "approve"]
+            },
+            "description": "Approve project for token operations. Citizens can now support this project with tokens."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6. TOKEN OPERATIONS (ALLOWED)",
+      "description": "After approval, citizen can perform token operations",
+      "item": [
+        {
+          "name": "6.1 - Request Tokens (NOW ALLOWED)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{citizen_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "proofDocument",
+                  "type": "file",
+                  "src": [],
+                  "description": "Upload tax receipt or eligibility proof"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/token-requests",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-requests"]
+            },
+            "description": "EXPECTED: Success - Citizen is now approved and can request tokens."
+          },
+          "response": []
+        },
+        {
+          "name": "6.2 - Support Project (NOW ALLOWED)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{citizen_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokensToSpend\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/projects/{{project_id}}/support",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", "{{project_id}}", "support"]
+            },
+            "description": "EXPECTED: Success - Both citizen AND project are now approved for token operations."
+          },
+          "response": []
+        },
+        {
+          "name": "6.3 - Get My Token Requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{citizen_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/token-requests",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-requests"]
+            },
+            "description": "View all token requests submitted by this citizen."
+          },
+          "response": []
+        },
+        {
+          "name": "6.4 - Get Pending Claims",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{citizen_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/token-requests/pending-claims",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token-requests", "pending-claims"]
+            },
+            "description": "Get approved token requests that are pending claim."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "7. REJECTION FLOW",
+      "description": "Rejected entities remain visible but cannot perform token operations",
+      "item": [
+        {
+          "name": "7.1 - Reject Citizen (Alternative Flow)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{government_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rejectionReason\": \"Incomplete documentation\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/government/citizens/:citizenId/reject",
+              "host": ["{{base_url}}"],
+              "path": ["api", "government", "citizens", ":citizenId", "reject"]
+            },
+            "description": "Reject citizen for token operations. Citizen remains visible but CANNOT perform token operations."
+          },
+          "response": []
+        },
+        {
+          "name": "7.2 - Reject Project (Alternative Flow)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{government_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rejectionReason\": \"Project does not meet community guidelines\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/government/registrations/projects/:projectId/reject",
+              "host": ["{{base_url}}"],
+              "path": ["api", "government", "registrations", "projects", ":projectId", "reject"]
+            },
+            "description": "Reject project for token operations. Project remains visible but CANNOT receive token support."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
