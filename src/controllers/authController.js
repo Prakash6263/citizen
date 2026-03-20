@@ -349,8 +349,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
         otp: resetOTP,
       },
     })
-
-    // Send reset email with OTP
+  } catch (error) {
     console.error("Email sending failed:", error)
     user.resetPasswordOTP = undefined
     user.resetPasswordExpire = undefined
@@ -560,8 +559,7 @@ const resendVerificationPublic = asyncHandler(async (req, res) => {
         otp: verificationOTP,
       },
     })
-
-    // Resend verification email with new OTP
+  } catch (error) {
     console.error("Email sending failed:", error)
     return ResponseHelper.error(res, "Email could not be sent. Please try again later.", 500)
   }
@@ -695,16 +693,6 @@ const registerSocial = asyncHandler(async (req, res) => {
     console.error("Email sending failed:", error)
     // proceed without failing registration
   }
-
-  // Audit log
-  await AuditLog.logAction({
-    user: user._id,
-    action: "register_social",
-    description: "Social Project user registered",
-    ip: req.ip,
-    userAgent: req.get("User-Agent"),
-    severity: "low",
-  })
 
   const RegistrationApproval = require("../models/RegistrationApproval")
   const Government = require("../models/Government")
