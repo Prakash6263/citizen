@@ -193,7 +193,11 @@ const getMySupportedProjects = asyncHandler(async (req, res) => {
   const supports = await ProjectSupport.find({ citizen: userId })
     .populate({
       path: "projectRegistration",
-      select: "projectOrganizationName projects user",
+      select: "projectOrganizationName city state country projects user",
+      populate: {
+        path: "user",
+        select: "fullName email avatar",
+      },
     })
     .sort({ supportedAt: -1 })
     .limit(limit * 1)
@@ -223,11 +227,24 @@ const getMySupportedProjects = asyncHandler(async (req, res) => {
         supportId: support.supportId,
         projectTitle: project.projectTitle,
         projectType: project.projectType,
+        projectDescription: project.projectDescription,
+        organizationName: support.projectRegistration.projectOrganizationName,
+        organizationCity: support.projectRegistration.city,
+        organizationState: support.projectRegistration.state,
+        organizationCountry: support.projectRegistration.country,
+        createdBy: support.projectRegistration.user
+          ? {
+              _id: support.projectRegistration.user._id,
+              fullName: support.projectRegistration.user.fullName,
+              email: support.projectRegistration.user.email,
+              avatar: support.projectRegistration.user.avatar,
+            }
+          : null,
         tokensSpent: support.tokensSpent,
         fundingProgress: {
           funded: project.tokensFunded,
           goal: project.fundingGoal,
-          percentage: Math.round((project.tokensFunded / project.fundingGoal) * 100),
+          percentage: project.fundingGoal > 0 ? Math.round((project.tokensFunded / project.fundingGoal) * 100) : 0,
         },
         supportedAt: support.supportedAt,
       }
