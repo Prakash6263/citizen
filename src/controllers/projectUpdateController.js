@@ -592,8 +592,6 @@ exports.getAllProjectUpdatesRandomly = async (req, res) => {
           "createdBy.email": 1,
           likesCount: { $size: "$likes" },
           commentsCount: { $size: "$comments" },
-          commentUsers: 0,
-          likeUsers: 0,
         },
       },
     ])
