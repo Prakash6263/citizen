@@ -1,82 +1,65 @@
 const { body, param, query } = require("express-validator")
 
-// Registration validation
+// Registration validation - Basic validation only
 const registerValidation = [
   body("fullName")
     .trim()
     .notEmpty()
-    .withMessage("Full name is required")
-    .isLength({ min: 2, max: 100 })
-    .withMessage("Full name must be between 2 and 100 characters")
-    .matches(/^[a-zA-Z\s]+$/)
-    .withMessage("Full name can only contain letters and spaces"),
+    .withMessage("Full name is required"),
 
   body("email")
+    .trim()
+    .notEmpty()
+    .withMessage("Email is required")
     .isEmail()
     .withMessage("Please provide a valid email")
-    .normalizeEmail()
-    .isLength({ max: 255 })
-    .withMessage("Email cannot exceed 255 characters"),
+    .normalizeEmail(),
 
   body("username")
     .optional({ checkFalsy: true })
-    .trim()
-    .isLength({ min: 3, max: 30 })
-    .withMessage("Username must be between 3 and 30 characters")
-    .matches(/^[a-zA-Z0-9_]+$/)
-    .withMessage("Username can only contain letters, numbers, and underscores")
-    .custom((value) => {
-      if (!value) return true // Allow empty/null values
-      // Reserved usernames
-      const reserved = ["admin", "root", "api", "www", "mail", "support", "help"]
-      if (reserved.includes(value.toLowerCase())) {
-        throw new Error("This username is reserved")
-      }
-      return true
-    }),
+    .trim(),
 
   body("password")
-    .isLength({ min: 6, max: 128 })
-    .withMessage("Password must be between 6 and 128 characters")
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-    .withMessage("Password must contain at least one uppercase letter, one lowercase letter, and one number"),
+    .notEmpty()
+    .withMessage("Password is required")
+    .isLength({ min: 6 })
+    .withMessage("Password must be at least 6 characters"),
 
-  body("confirmPassword").custom((value, { req }) => {
-    if (value !== req.body.password) {
-      throw new Error("Password confirmation does not match password")
-    }
-    return true
-  }),
+  body("confirmPassword")
+    .notEmpty()
+    .withMessage("Password confirmation is required")
+    .custom((value, { req }) => {
+      if (value !== req.body.password) {
+        throw new Error("Passwords do not match")
+      }
+      return true
+    }),
 
   body("userType")
-    .isIn(["citizen", "social_project", "government"])
-    .withMessage("User type must be citizen, social_project, or localgovernment"),
+    .notEmpty()
+    .withMessage("User type is required")
+    .isIn(["citizen", "social_project"])
+    .withMessage("User type must be citizen or social_project"),
 
-  body("country").optional().trim().isLength({ max: 100 }).withMessage("Country name cannot exceed 100 characters"),
+  body("country")
+    .optional({ checkFalsy: true })
+    .trim(),
 
-  body("province").optional().trim().isLength({ max: 100 }).withMessage("Province name cannot exceed 100 characters"),
+  body("province")
+    .optional({ checkFalsy: true })
+    .trim(),
 
-  body("city").optional().trim().isLength({ max: 100 }).withMessage("City name cannot exceed 100 characters"),
+  body("city")
+    .optional({ checkFalsy: true })
+    .trim(),
 
   body("agreedToTerms")
-    .isBoolean()
-    .withMessage("Terms agreement must be a boolean")
-    .custom((value) => {
-      if (!value) {
-        throw new Error("You must agree to the terms and conditions")
-      }
-      return true
-    }),
+    .notEmpty()
+    .withMessage("You must agree to the terms and conditions"),
 
   body("agreedToPrivacy")
-    .isBoolean()
-    .withMessage("Privacy agreement must be a boolean")
-    .custom((value) => {
-      if (!value) {
-        throw new Error("You must agree to the privacy policy")
-      }
-      return true
-    }),
+    .notEmpty()
+    .withMessage("You must agree to the privacy policy"),
 ]
 
 // Login validation
@@ -179,71 +162,56 @@ const verifyResetPasswordValidation = [
     .withMessage("Reset code must contain only numbers"),
 ]
 
-// Social project registration validation
+// Social project registration validation - Basic validation only
 const socialRegisterValidation = [
   body("fullName")
     .trim()
     .notEmpty()
-    .withMessage("Full name is required")
-    .isLength({ min: 2, max: 100 })
-    .withMessage("Full name must be between 2 and 100 characters")
-    .matches(/^[a-zA-Z\s]+$/)
-    .withMessage("Full name can only contain letters and spaces"),
+    .withMessage("Full name is required"),
 
   body("email")
+    .trim()
+    .notEmpty()
+    .withMessage("Email is required")
     .isEmail()
     .withMessage("Please provide a valid email")
-    .normalizeEmail()
-    .isLength({ max: 255 })
-    .withMessage("Email cannot exceed 255 characters"),
+    .normalizeEmail(),
 
   body("password")
-    .isLength({ min: 6, max: 128 })
-    .withMessage("Password must be between 6 and 128 characters")
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-    .withMessage("Password must contain at least one uppercase letter, one lowercase letter, and one number"),
+    .notEmpty()
+    .withMessage("Password is required")
+    .isLength({ min: 6 })
+    .withMessage("Password must be at least 6 characters"),
 
-  body("confirmPassword").custom((value, { req }) => {
-    if (value !== req.body.password) {
-      throw new Error("Password confirmation does not match password")
-    }
-    return true
-  }),
-
-  body("userType")
-    .optional()
-    .custom(() => {
-      throw new Error("userType is not allowed in social signup")
+  body("confirmPassword")
+    .notEmpty()
+    .withMessage("Password confirmation is required")
+    .custom((value, { req }) => {
+      if (value !== req.body.password) {
+        throw new Error("Passwords do not match")
+      }
+      return true
     }),
 
   body("country")
-    .trim()
-    .notEmpty()
-    .withMessage("Country is required")
-    .isLength({ max: 100 })
-    .withMessage("Country name cannot exceed 100 characters"),
-  body("province").optional().trim().isLength({ max: 100 }).withMessage("Province name cannot exceed 100 characters"),
-  body("city").optional().trim().isLength({ max: 100 }).withMessage("City name cannot exceed 100 characters"),
+    .optional({ checkFalsy: true })
+    .trim(),
+
+  body("province")
+    .optional({ checkFalsy: true })
+    .trim(),
+
+  body("city")
+    .optional({ checkFalsy: true })
+    .trim(),
 
   body("agreedToTerms")
-    .isBoolean()
-    .withMessage("Terms agreement must be a boolean")
-    .custom((value) => {
-      if (!value) {
-        throw new Error("You must agree to the terms and conditions")
-      }
-      return true
-    }),
+    .notEmpty()
+    .withMessage("You must agree to the terms and conditions"),
 
   body("agreedToPrivacy")
-    .isBoolean()
-    .withMessage("Privacy agreement must be a boolean")
-    .custom((value) => {
-      if (!value) {
-        throw new Error("You must agree to the privacy policy")
-      }
-      return true
-    }),
+    .notEmpty()
+    .withMessage("You must agree to the privacy policy"),
 ]
 
 module.exports = {

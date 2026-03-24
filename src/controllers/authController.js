@@ -22,16 +22,47 @@ const register = asyncHandler(async (req, res) => {
   const { fullName, email, username, password, userType, country, province, city, agreedToTerms, agreedToPrivacy } =
     req.body
 
-  // Check if user already exists
+  // Check if email already exists
   const existingUser = await User.findOne({
-    $or: [{ email: email.toLowerCase() }, { username: username.toLowerCase() }],
+    email: email.toLowerCase(),
   })
 
   if (existingUser) {
-    if (existingUser.email === email.toLowerCase()) {
-      return ResponseHelper.error(res, "User with this email already exists", 200)
+    return ResponseHelper.error(res, "User with this email already exists", 200)
+  }
+
+  // Generate username if not provided
+  let finalUsername = username
+  if (!username) {
+    const baseFromName = (fullName || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+    const baseFromEmail = email
+      .split("@")[0]
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+    let base = baseFromName || baseFromEmail || "user"
+    base = base.slice(0, 24) // keep under 30 after suffix
+
+    let generatedUsername = base
+    let attempt = 0
+    // Ensure username uniqueness
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      // eslint-disable-next-line no-await-in-loop
+      const exists = await User.findOne({ username: generatedUsername })
+      if (!exists) break
+      attempt += 1
+      const suffix = attempt < 1000 ? attempt.toString() : Math.floor(Math.random() * 100000).toString()
+      generatedUsername = `${base}_${suffix}`.slice(0, 30)
     }
-    if (existingUser.username === username.toLowerCase()) {
+    finalUsername = generatedUsername
+  } else {
+    // If username is provided, check if it already exists
+    const usernameTaken = await User.findOne({ username: finalUsername.toLowerCase() })
+    if (usernameTaken) {
       return ResponseHelper.error(res, "Username is already taken", 400)
     }
   }
@@ -40,7 +71,7 @@ const register = asyncHandler(async (req, res) => {
   const user = await User.create({
     fullName,
     email: email.toLowerCase(),
-    username: username.toLowerCase(),
+    username: finalUsername.toLowerCase(),
     password,
     userType,
     country,
