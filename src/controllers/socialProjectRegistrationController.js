@@ -35,15 +35,26 @@ const submitSocialProjectRegistration = asyncHandler(async (req, res) => {
   const {
     projectOrganizationName,
     allowedProjectTypes,
-    state,
-    city,
-    country,
     responsiblePersonFullName,
     personPositionRole,
     contactNumber,
     emailAddress,
     registrationNotes,
   } = req.body
+
+  // Fetch location from authenticated user token (not from frontend)
+  const registrationCity = (req.user.city || "").trim()
+  const registrationState = (req.user.province || "").trim()
+  const registrationCountry = (req.user.country || "").trim()
+  const registrationEmail = req.user.email || ""
+
+  if (!registrationCity || !registrationState || !registrationCountry) {
+    return errorResponse(
+      res,
+      "City, state and country are missing from your profile. Please complete your profile location before registering a project.",
+      400,
+    )
+  }
 
   const documents = []
   if (req.files && req.files.length > 0) {
@@ -74,19 +85,6 @@ const submitSocialProjectRegistration = asyncHandler(async (req, res) => {
         return errorResponse(res, "Failed to upload document", 500)
       }
     }
-  }
-
-  // Derive location: prefer body values, fall back to user profile
-  const registrationCity = (city || req.user.city || "").trim()
-  const registrationState = (state || req.user.province || "").trim()
-  const registrationCountry = (country || req.user.country || "").trim()
-
-  if (!registrationCity || !registrationState || !registrationCountry) {
-    return errorResponse(
-      res,
-      "City, state and country are required. Please complete your profile location or provide them in the request.",
-      400,
-    )
   }
 
   const registration = await SocialProjectRegistration.create({
@@ -349,12 +347,8 @@ const createProject = asyncHandler(async (req, res) => {
   const {
     projectTitle,
     projectType,
-    state,
-    city,
-    country,
     projectDescription,
     representativeName,
-    email,
     fundingGoal, // Accept funding goal from frontend
   } = req.body
 
@@ -408,7 +402,7 @@ const createProject = asyncHandler(async (req, res) => {
     projectDescription,
     contactInfo: {
       representativeName,
-      email,
+      email: req.user.email, // Use email from authenticated user token
     },
     documentation,
     projectStatus: "pending_approval", // NOT active — requires government approval
