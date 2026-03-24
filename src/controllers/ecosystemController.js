@@ -74,20 +74,48 @@ const getAllProjects = asyncHandler(async (req, res) => {
   const sort = {}
   sort[sortBy] = sortOrder === "desc" ? -1 : 1
 
-  const projects = await Project.find(filter)
-    .select("projectTitle status createdAt")
+  const registrations = await Project.find(filter)
+    .populate("user", "fullName email avatar")
+    .select("projectTitle projects projectOrganizationName city state country user")
     .sort(sort)
     .limit(limit * 1)
     .skip((page - 1) * limit)
+    .lean()
 
   const total = await Project.countDocuments(filter)
+
+  // Extract and format all projects with organization info
+  const projects = registrations.flatMap((registration) =>
+    registration.projects.map((project) => ({
+      _id: project._id,
+      projectTitle: project.projectTitle,
+      projectType: project.projectType,
+      projectDescription: project.projectDescription,
+      status: project.projectStatus,
+      organizationName: registration.projectOrganizationName,
+      organizationCity: registration.city,
+      organizationState: registration.state,
+      organizationCountry: registration.country,
+      createdBy: registration.user
+        ? {
+            _id: registration.user._id,
+            fullName: registration.user.fullName,
+            email: registration.user.email,
+            avatar: registration.user.avatar,
+          }
+        : null,
+      fundingGoal: project.fundingGoal,
+      tokensFunded: project.tokensFunded,
+      publishedAt: project.publishedAt,
+    })),
+  )
 
   successResponse(res, "Projects retrieved successfully", {
     projects,
     pagination: {
       current: page,
       pages: Math.ceil(total / limit),
-      total,
+      total: projects.length,
     },
   })
 })
