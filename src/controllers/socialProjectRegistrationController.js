@@ -331,8 +331,6 @@ const createProject = asyncHandler(async (req, res) => {
     city,
     country,
     projectDescription,
-    startDate,
-    endDate,
     representativeName,
     email,
     fundingGoal, // Accept funding goal from frontend
@@ -386,8 +384,6 @@ const createProject = asyncHandler(async (req, res) => {
     city: registration.city,
     country: registration.country,
     projectDescription,
-    startDate,
-    endDate,
     contactInfo: {
       representativeName,
       email,
@@ -395,7 +391,7 @@ const createProject = asyncHandler(async (req, res) => {
     documentation,
     projectStatus: "pending_approval", // NOT active — requires government approval
     publishedAt: new Date(),
-    fundingGoal: 0,  // Set by government during project approval
+    fundingGoal: fundingGoal || 0, // Set from request, can be overridden by government
     allocationSet: false,
     tokensFunded: 0,
   }
@@ -681,8 +677,6 @@ const getProjectDetailsPublic = asyncHandler(async (req, res) => {
     city: project.city,
     country: project.country,
     projectDescription: project.projectDescription,
-    startDate: project.startDate,
-    endDate: project.endDate,
     contactInfo: project.contactInfo,
     documentation: formatDocumentation(project.documentation),
     status: project.projectStatus,

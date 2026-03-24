@@ -146,14 +146,6 @@ const socialProjectRegistrationSchema = new mongoose.Schema(
         city: String,
         country: String,
         projectDescription: String,
-        startDate: {
-          type: Date,
-          required: true,
-        },
-        endDate: {
-          type: Date,
-          required: true,
-        },
         contactInfo: {
           representativeName: String,
           email: String,

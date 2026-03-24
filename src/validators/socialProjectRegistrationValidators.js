@@ -212,6 +212,12 @@ const projectCreationValidation = [
     .isEmail()
     .withMessage("Email must be valid")
     .normalizeEmail(),
+
+  body("fundingGoal")
+    .notEmpty()
+    .withMessage("Token Goal is required")
+    .isInt({ min: 1, max: 100000 })
+    .withMessage("Token Goal must be a number between 1 and 100000 tokens"),
 ]
 
 const projectUpdateValidation = [
