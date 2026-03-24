@@ -156,7 +156,8 @@ const getAllProjects = asyncHandler(async (req, res) => {
     status: "approved",
     "projects.projectStatus": "active",
   })
-    .select("projectOrganizationName city state country projects")
+    .populate("user", "fullName email avatar")
+    .select("projectOrganizationName city state country projects user")
     .sort({ createdAt: -1 })
     .lean()
 
@@ -164,9 +165,30 @@ const getAllProjects = asyncHandler(async (req, res) => {
     (reg.projects || [])
       .filter((p) => p.projectStatus === "active")
       .map((p) => ({
-        ...p,
+        _id: p._id,
+        projectTitle: p.projectTitle,
+        projectType: p.projectType,
+        projectDescription: p.projectDescription,
+        state: p.state || reg.state,
+        city: p.city || reg.city,
+        country: p.country || reg.country,
+        projectStatus: p.projectStatus,
         organizationName: reg.projectOrganizationName,
         organizationCity: reg.city,
+        organizationState: reg.state,
+        organizationCountry: reg.country,
+        createdBy: reg.user
+          ? {
+              _id: reg.user._id,
+              fullName: reg.user.fullName,
+              email: reg.user.email,
+              avatar: reg.user.avatar,
+            }
+          : null,
+        fundingGoal: p.fundingGoal,
+        tokensFunded: p.tokensFunded,
+        contactInfo: p.contactInfo,
+        publishedAt: p.publishedAt,
       })),
   )
   successResponse(res, "Active projects retrieved", projects)
@@ -331,8 +353,6 @@ const createProject = asyncHandler(async (req, res) => {
     city,
     country,
     projectDescription,
-    startDate,
-    endDate,
     representativeName,
     email,
     fundingGoal, // Accept funding goal from frontend
@@ -386,8 +406,6 @@ const createProject = asyncHandler(async (req, res) => {
     city: registration.city,
     country: registration.country,
     projectDescription,
-    startDate,
-    endDate,
     contactInfo: {
       representativeName,
       email,
@@ -395,7 +413,7 @@ const createProject = asyncHandler(async (req, res) => {
     documentation,
     projectStatus: "pending_approval", // NOT active — requires government approval
     publishedAt: new Date(),
-    fundingGoal: 0,  // Set by government during project approval
+    fundingGoal: fundingGoal || 0, // Set from request, can be overridden by government
     allocationSet: false,
     tokensFunded: 0,
   }
@@ -681,8 +699,6 @@ const getProjectDetailsPublic = asyncHandler(async (req, res) => {
     city: project.city,
     country: project.country,
     projectDescription: project.projectDescription,
-    startDate: project.startDate,
-    endDate: project.endDate,
     contactInfo: project.contactInfo,
     documentation: formatDocumentation(project.documentation),
     status: project.projectStatus,
@@ -888,6 +904,7 @@ const getProjectFundingDetails = asyncHandler(async (req, res) => {
     "projects._id": projectId,
   })
     .populate("projects.supportedBy.userId", "fullName avatar")
+    .populate("user", "fullName email avatar")
     .lean()
 
   if (!registration) {
@@ -896,7 +913,7 @@ const getProjectFundingDetails = asyncHandler(async (req, res) => {
 
   const project = registration.projects.find((p) => p._id.toString() === projectId)
 
-  if (!project || project.status !== "active") {
+  if (!project || project.projectStatus !== "active") {
     return errorResponse(res, "Project not found or is not active", 404)
   }
 
@@ -908,10 +925,25 @@ const getProjectFundingDetails = asyncHandler(async (req, res) => {
   const fundingDetails = {
     projectId: project._id,
     projectTitle: project.projectTitle,
+    projectType: project.projectType,
+    projectDescription: project.projectDescription,
+    organizationName: registration.projectOrganizationName,
+    organizationCity: registration.city,
+    organizationState: registration.state,
+    organizationCountry: registration.country,
+    createdBy: registration.user
+      ? {
+          _id: registration.user._id,
+          fullName: registration.user.fullName,
+          email: registration.user.email,
+          avatar: registration.user.avatar,
+        }
+      : null,
     projectTokenLimit: allocationLimit?.projectTokenLimit || null,
     tokensFunded: project.tokensFunded,
-    percentageFunded: allocationLimit
-      ? Math.round((project.tokensFunded / allocationLimit.projectTokenLimit) * 100)
+    fundingGoal: project.fundingGoal,
+    percentageFunded: project.fundingGoal > 0
+      ? Math.round((project.tokensFunded / project.fundingGoal) * 100)
       : 0,
     supportersCount: project.supportedBy.length,
     supporters: project.supportedBy.map((support) => ({
@@ -921,9 +953,7 @@ const getProjectFundingDetails = asyncHandler(async (req, res) => {
       tokensSpent: support.tokensSpent,
       supportedAt: support.supportedAt,
     })),
-    remainingTokensNeeded: allocationLimit
-      ? Math.max(0, allocationLimit.projectTokenLimit - project.tokensFunded)
-      : null,
+    remainingTokensNeeded: Math.max(0, project.fundingGoal - project.tokensFunded),
   }
 
   successResponse(res, "Project funding details retrieved successfully", fundingDetails)
