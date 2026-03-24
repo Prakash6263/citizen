@@ -9,13 +9,6 @@ const socialProjectRegistrationValidation = [
     .isLength({ min: 3, max: 100 })
     .withMessage("Project / Organization Name must be between 3 and 100 characters"),
 
-  body("state")
-    .notEmpty()
-    .withMessage("State is required")
-    .trim()
-    .isLength({ min: 2, max: 50 })
-    .withMessage("State must be between 2 and 50 characters"),
-
   body("allowedProjectTypes")
     .custom((value) => {
       // Convert string to array if needed
@@ -53,20 +46,6 @@ const socialProjectRegistrationValidation = [
 
       return true
     }),
-
-  body("city")
-    .notEmpty()
-    .withMessage("City is required")
-    .trim()
-    .isLength({ min: 2, max: 50 })
-    .withMessage("City must be between 2 and 50 characters"),
-
-  body("country")
-    .notEmpty()
-    .withMessage("Country is required")
-    .trim()
-    .isLength({ min: 2, max: 50 })
-    .withMessage("Country must be between 2 and 50 characters"),
 
   body("responsiblePersonFullName")
     .notEmpty()
@@ -175,21 +154,6 @@ const projectCreationValidation = [
     ])
     .withMessage("Invalid project type selected"),
 
-  body("state")
-    .notEmpty()
-    .withMessage("State is required")
-    .trim()
-    .isLength({ min: 2, max: 50 })
-    .withMessage("State must be between 2 and 50 characters"),
-
-  body("city").optional().trim().isLength({ min: 2, max: 50 }).withMessage("City must be between 2 and 50 characters"),
-
-  body("country")
-    .optional()
-    .trim()
-    .isLength({ min: 2, max: 50 })
-    .withMessage("Country must be between 2 and 50 characters"),
-
   body("projectDescription")
     .notEmpty()
     .withMessage("Project Description is required")
@@ -205,13 +169,6 @@ const projectCreationValidation = [
     .withMessage("Representative name can only contain letters and spaces")
     .isLength({ min: 3, max: 100 })
     .withMessage("Representative name must be between 3 and 100 characters"),
-
-  body("contactInfo.email")
-    .notEmpty()
-    .withMessage("Email is required")
-    .isEmail()
-    .withMessage("Email must be valid")
-    .normalizeEmail(),
 
   body("fundingGoal")
     .notEmpty()
