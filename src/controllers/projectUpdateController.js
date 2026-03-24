@@ -76,7 +76,9 @@ exports.getProjectUpdatesByProjectId = async (req, res) => {
     const skip = (page - 1) * limit
 
     const updates = await ProjectUpdate.find({ projectId: projectId })
-      .populate("createdBy", "fullName avatar userType")
+      .populate("createdBy", "fullName avatar userType email")
+      .populate("comments.userId", "fullName")
+      .populate("likes.userId", "fullName")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(Number.parseInt(limit))
@@ -118,8 +120,11 @@ exports.getProjectUpdateById = async (req, res) => {
   try {
     const { updateId } = req.params
 
-    // Only populate createdBy which actually exists in the schema
-    const update = await ProjectUpdate.findById(updateId).populate("createdBy", "fullName avatar userType")
+    // Populate createdBy, comments.userId, and likes.userId with user details
+    const update = await ProjectUpdate.findById(updateId)
+      .populate("createdBy", "fullName avatar userType email")
+      .populate("comments.userId", "fullName")
+      .populate("likes.userId", "fullName")
 
     if (!update) {
       return res.status(404).json({
@@ -268,7 +273,7 @@ exports.likeProjectUpdate = async (req, res) => {
     })
 
     await update.save()
-    await update.populate("likes.userId", "fullName avatar userType")
+    await update.populate("likes.userId", "fullName")
     await update.populate("createdBy", "fullName avatar userType")
 
     const updateObj = update.toObject()
@@ -305,7 +310,7 @@ exports.unlikeProjectUpdate = async (req, res) => {
     update.likes = update.likes.filter((like) => like.userId.toString() !== userId)
 
     await update.save()
-    await update.populate("likes.userId", "fullName avatar userType")
+    await update.populate("likes.userId", "fullName")
     await update.populate("createdBy", "fullName avatar userType")
 
     const updateObj = update.toObject()
@@ -357,7 +362,7 @@ exports.addCommentToProjectUpdate = async (req, res) => {
     update.comments.push(comment)
     await update.save()
 
-    await update.populate("comments.userId", "fullName avatar userType")
+    await update.populate("comments.userId", "fullName")
     await update.populate("createdBy", "fullName avatar userType")
 
     const updateObj = update.toObject()
@@ -409,7 +414,7 @@ exports.removeCommentFromProjectUpdate = async (req, res) => {
     update.comments.id(commentId).deleteOne()
     await update.save()
 
-    await update.populate("comments.userId", "fullName avatar userType")
+    await update.populate("comments.userId", "fullName")
     await update.populate("createdBy", "fullName avatar userType")
 
     const updateObj = update.toObject()
@@ -482,6 +487,94 @@ exports.getAllProjectUpdatesRandomly = async (req, res) => {
       },
       { $unwind: "$createdBy" },
       {
+        $lookup: {
+          from: "users",
+          localField: "comments.userId",
+          foreignField: "_id",
+          as: "commentUsers",
+        },
+      },
+      {
+        $addFields: {
+          comments: {
+            $map: {
+              input: "$comments",
+              as: "comment",
+              in: {
+                _id: "$$comment._id",
+                userId: {
+                  $let: {
+                    vars: {
+                      user: {
+                        $arrayElemAt: [
+                          {
+                            $filter: {
+                              input: "$commentUsers",
+                              as: "u",
+                              cond: { $eq: ["$$u._id", "$$comment.userId"] },
+                            },
+                          },
+                          0,
+                        ],
+                      },
+                    },
+                    in: {
+                      _id: "$$user._id",
+                      fullName: "$$user.fullName",
+                    },
+                  },
+                },
+                text: "$$comment.text",
+                createdAt: "$$comment.createdAt",
+              },
+            },
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "likes.userId",
+          foreignField: "_id",
+          as: "likeUsers",
+        },
+      },
+      {
+        $addFields: {
+          likes: {
+            $map: {
+              input: "$likes",
+              as: "like",
+              in: {
+                userId: {
+                  $let: {
+                    vars: {
+                      user: {
+                        $arrayElemAt: [
+                          {
+                            $filter: {
+                              input: "$likeUsers",
+                              as: "u",
+                              cond: { $eq: ["$$u._id", "$$like.userId"] },
+                            },
+                          },
+                          0,
+                        ],
+                      },
+                    },
+                    in: {
+                      _id: "$$user._id",
+                      fullName: "$$user.fullName",
+                    },
+                  },
+                },
+                likedAt: "$$like.likedAt",
+              },
+            },
+          },
+        },
+      },
+      {
         $project: {
           registrationId: 1,
           projectId: 1,
@@ -496,8 +589,11 @@ exports.getAllProjectUpdatesRandomly = async (req, res) => {
           "createdBy.fullName": 1,
           "createdBy.avatar": 1,
           "createdBy.userType": 1,
+          "createdBy.email": 1,
           likesCount: { $size: "$likes" },
           commentsCount: { $size: "$comments" },
+          commentUsers: 0,
+          likeUsers: 0,
         },
       },
     ])
@@ -548,7 +644,7 @@ exports.getProjectUpdateComments = async (req, res) => {
     const update = await ProjectUpdate.findById(updateId)
       .populate({
         path: "comments.userId",
-        select: "fullName avatar userType",
+        select: "fullName",
       })
       .select("comments")
 
