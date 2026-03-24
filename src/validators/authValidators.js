@@ -19,14 +19,14 @@ const registerValidation = [
     .withMessage("Email cannot exceed 255 characters"),
 
   body("username")
+    .optional({ checkFalsy: true })
     .trim()
-    .notEmpty()
-    .withMessage("Username is required")
     .isLength({ min: 3, max: 30 })
     .withMessage("Username must be between 3 and 30 characters")
     .matches(/^[a-zA-Z0-9_]+$/)
     .withMessage("Username can only contain letters, numbers, and underscores")
     .custom((value) => {
+      if (!value) return true // Allow empty/null values
       // Reserved usernames
       const reserved = ["admin", "root", "api", "www", "mail", "support", "help"]
       if (reserved.includes(value.toLowerCase())) {
@@ -84,7 +84,7 @@ const loginValidation = [
   body("identifier")
     .trim()
     .notEmpty()
-    .withMessage("Email or username is required")
+    .withMessage("Email is required")
     .isLength({ max: 255 })
     .withMessage("Identifier cannot exceed 255 characters"),
 
