@@ -700,6 +700,7 @@ const getProjectDetailsPublic = asyncHandler(async (req, res) => {
     fundingGoal: project.fundingGoal,
     tokensFunded: project.tokensFunded,
     allocationSet: project.allocationSet,
+    canSupport: project.projectStatus === "active",
     fundingProgress: project.fundingGoal > 0 ? Math.round((project.tokensFunded / project.fundingGoal) * 100) : 0,
     citizenTokenLimit: allocationLimit?.citizenTokenLimit || null,
     remainingFundingNeeded: Math.max(0, project.fundingGoal - project.tokensFunded),
