@@ -80,16 +80,37 @@ const supportProject = asyncHandler(async (req, res) => {
   // Generate support ID
   const supportId = generateUniqueId("SUP")
 
-  const support = await ProjectSupport.create({
+  // Validate all required fields are present and not null
+  const supportData = {
     supportId,
     citizen: req.user._id.toString(),
     project: projectId,
     projectRegistration: projectRegistration._id,
     tokensSpent: tokensToSpend,
     supportedAt: new Date(),
-  })
+  }
 
-  console.log("[v0] Created support record:", support._id, "for citizen:", support.citizen)
+  // Ensure none of the key fields are null/undefined
+  if (!supportData.citizen || !supportData.project || !supportData.projectRegistration) {
+    return errorResponse(res, "Invalid support request: missing required data", 400)
+  }
+
+  let support
+  try {
+    support = await ProjectSupport.create(supportData)
+    console.log("[v0] Created support record:", support._id, "for citizen:", support.citizen)
+  } catch (err) {
+    // Handle duplicate key errors specifically
+    if (err.code === 11000) {
+      console.error("[v0] Duplicate key error for support:", err.keyValue)
+      return errorResponse(
+        res,
+        "You have already supported this project. You cannot support the same project twice.",
+        409
+      )
+    }
+    throw err
+  }
 
   const transactionId = generateUniqueId("TXN")
   await TokenTransaction.create({

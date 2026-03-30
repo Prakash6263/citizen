@@ -7,6 +7,7 @@ const projectSupportSchema = new mongoose.Schema(
       type: String,
       unique: true,
       required: true,
+      sparse: true, // Allow multiple nulls for sparse indexes
     },
 
     // Citizen who is supporting
@@ -49,6 +50,8 @@ const projectSupportSchema = new mongoose.Schema(
 )
 
 // Indexes
+// Ensure citizen and project are unique together (one support per citizen per project)
+projectSupportSchema.index({ citizen: 1, project: 1 }, { unique: true, sparse: true })
 projectSupportSchema.index({ citizen: 1, createdAt: -1 })
 projectSupportSchema.index({ project: 1, createdAt: -1 })
 projectSupportSchema.index({ projectRegistration: 1 })
