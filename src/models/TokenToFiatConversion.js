@@ -168,6 +168,18 @@ const tokenToFiatConversionSchema = new mongoose.Schema(
       enum: ["pending_verification", "verified", "verification_failed"],
       default: "pending_verification",
     },
+
+    // Token Reserve Status (for pessimistic locking)
+    tokensReserved: {
+      type: Boolean,
+      default: false,
+      description: "Indicates if tokens have been deducted from user wallet",
+    },
+
+    reservedAt: {
+      type: Date,
+      description: "Timestamp when tokens were deducted from wallet",
+    },
   },
   {
     timestamps: true,
