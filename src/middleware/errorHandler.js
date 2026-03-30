@@ -43,9 +43,35 @@ const errorHandler = (err, req, res, next) => {
 
   // Mongoose validation error
   if (err.name === "ValidationError") {
-    const message = Object.values(err.errors)
-      .map((val) => val.message)
-      .join(", ")
+    const validationErrors = Object.entries(err.errors).map(([field, val]) => {
+      let message = val.message
+      
+      // Special handling for ProjectSupport validation errors
+      if (err.model?.modelName === "ProjectSupport") {
+        if (field === "tokensSpent") {
+          const value = val.value
+          if (val.kind === "max") {
+            message = `You cannot allocate more than 5 tokens to a single project. You tried to allocate ${value} tokens.`
+          } else if (val.kind === "min") {
+            message = `You must allocate at least 1 token to support a project. You tried to allocate ${value} tokens.`
+          } else if (!value && val.kind === "required") {
+            message = "Please specify how many tokens you want to allocate (1-5 tokens)."
+          }
+        } else if (field === "citizen") {
+          message = "Invalid citizen information. Please try logging in again."
+        } else if (field === "project") {
+          message = "Invalid project ID. The project may have been deleted or is unavailable."
+        } else if (field === "projectRegistration") {
+          message = "Invalid project registration. Please try again later or contact support."
+        } else if (field === "supportId") {
+          message = "Failed to generate support record ID. Please try again."
+        }
+      }
+      
+      return message
+    })
+    
+    const message = validationErrors.join("; ")
     error = { message, statusCode: 400 }
   }
 

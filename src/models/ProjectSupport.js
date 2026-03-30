@@ -33,9 +33,9 @@ const projectSupportSchema = new mongoose.Schema(
     // Tokens spent on this project
     tokensSpent: {
       type: Number,
-      required: true,
-      min: 1,
-      max: 5,
+      required: [true, "Please specify how many tokens you want to allocate to support this project."],
+      min: [1, "You must allocate at least 1 token to support a project."],
+      max: [5, "You cannot allocate more than 5 tokens to a single project."],
     },
 
     // Support timestamp
