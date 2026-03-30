@@ -18,8 +18,27 @@ const errorHandler = (err, req, res, next) => {
 
   // Mongoose duplicate key error
   if (err.code === 11000) {
-    const message = "Duplicate field value entered"
-    error = { message, statusCode: 400 }
+    // Extract field names from the error
+    const field = Object.keys(err.keyValue)[0]
+    const value = err.keyValue[field]
+    
+    // Create user-friendly error messages
+    let message = "Duplicate field value entered"
+    
+    if (err.collection === "projectsupports") {
+      // Handle ProjectSupport-specific duplicate errors
+      if (field === "supportId") {
+        message = "This support record already exists. Please refresh and try again."
+      } else if (field === "project" || err.keyPattern?.project_1_supporter_1) {
+        message = "You have already supported this project. Update your existing support or contact support for assistance."
+      } else {
+        message = `Cannot create support record: ${field} must be unique. You may have already supported this project.`
+      }
+    } else {
+      message = `A record with this ${field} already exists`
+    }
+    
+    error = { message, statusCode: 400, details: { field, value } }
   }
 
   // Mongoose validation error

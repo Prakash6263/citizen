@@ -80,16 +80,37 @@ const supportProject = asyncHandler(async (req, res) => {
   // Generate support ID
   const supportId = generateUniqueId("SUP")
 
-  const support = await ProjectSupport.create({
+  // Validate all required fields are present and not null
+  const supportData = {
     supportId,
     citizen: req.user._id.toString(),
     project: projectId,
     projectRegistration: projectRegistration._id,
     tokensSpent: tokensToSpend,
     supportedAt: new Date(),
-  })
+  }
 
-  console.log("[v0] Created support record:", support._id, "for citizen:", support.citizen)
+  // Ensure none of the key fields are null/undefined
+  if (!supportData.citizen || !supportData.project || !supportData.projectRegistration) {
+    return errorResponse(res, "Invalid support request: missing required data", 400)
+  }
+
+  let support
+  try {
+    support = await ProjectSupport.create(supportData)
+    console.log("[v0] Created support record:", support._id, "for citizen:", support.citizen)
+  } catch (err) {
+    // Handle duplicate key errors specifically
+    if (err.code === 11000) {
+      console.error("[v0] Duplicate key error for support:", err.keyValue)
+      return errorResponse(
+        res,
+        "You have already supported this project. You cannot support the same project twice.",
+        409
+      )
+    }
+    throw err
+  }
 
   const transactionId = generateUniqueId("TXN")
   await TokenTransaction.create({
@@ -193,7 +214,6 @@ const getMySupportedProjects = asyncHandler(async (req, res) => {
   const supports = await ProjectSupport.find({ citizen: userId })
     .populate({
       path: "projectRegistration",
-      select: "projectOrganizationName city state country projects user",
       populate: {
         path: "user",
         select: "fullName email avatar",
@@ -225,13 +245,27 @@ const getMySupportedProjects = asyncHandler(async (req, res) => {
       return {
         _id: support._id,
         supportId: support.supportId,
-        projectTitle: project.projectTitle,
-        projectType: project.projectType,
-        projectDescription: project.projectDescription,
-        organizationName: support.projectRegistration.projectOrganizationName,
-        organizationCity: support.projectRegistration.city,
-        organizationState: support.projectRegistration.state,
-        organizationCountry: support.projectRegistration.country,
+        // Return complete project object with all fields
+        project: {
+          ...project,
+          fundingProgress: {
+            funded: project.tokensFunded,
+            goal: project.fundingGoal,
+            percentage: project.fundingGoal > 0 ? Math.round((project.tokensFunded / project.fundingGoal) * 100) : 0,
+          },
+        },
+        // Organization info
+        organizationInfo: {
+          name: support.projectRegistration.projectOrganizationName,
+          city: support.projectRegistration.city,
+          state: support.projectRegistration.state,
+          country: support.projectRegistration.country,
+          responsiblePersonFullName: support.projectRegistration.responsiblePersonFullName,
+          personPositionRole: support.projectRegistration.personPositionRole,
+          contactNumber: support.projectRegistration.contactNumber,
+          emailAddress: support.projectRegistration.emailAddress,
+        },
+        // Creator info
         createdBy: support.projectRegistration.user
           ? {
               _id: support.projectRegistration.user._id,
@@ -240,13 +274,11 @@ const getMySupportedProjects = asyncHandler(async (req, res) => {
               avatar: support.projectRegistration.user.avatar,
             }
           : null,
-        tokensSpent: support.tokensSpent,
-        fundingProgress: {
-          funded: project.tokensFunded,
-          goal: project.fundingGoal,
-          percentage: project.fundingGoal > 0 ? Math.round((project.tokensFunded / project.fundingGoal) * 100) : 0,
+        // Citizen's support info
+        citizenSupport: {
+          tokensSpent: support.tokensSpent,
+          supportedAt: support.supportedAt,
         },
-        supportedAt: support.supportedAt,
       }
     })
     .filter((item) => item !== null)
