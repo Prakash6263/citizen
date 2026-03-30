@@ -76,7 +76,7 @@ const tokenTransactionSchema = new mongoose.Schema(
     description: String,
     category: {
       type: String,
-      enum: ["participation", "contribution", "milestone", "bonus", "correction"],
+      enum: ["participation", "contribution", "milestone", "bonus", "correction", "conversion", "hold", "refund"],
     },
 
     // Audit Trail

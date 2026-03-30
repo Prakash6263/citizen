@@ -84,7 +84,7 @@ const requestTokenConversion = asyncHandler(async (req, res) => {
   if (user.tokenBalance < tokenAmount) {
     return errorResponse(
       res,
-      `Insufficient tokens. Available: ${user.tokenBalance}, Requested: ${tokenAmount}`,
+      `Insufficient tokens. Available: ${user.tokenBalance}, Requested: ${tokenAmount}. Please request a smaller amount.`,
       400,
     )
   }
@@ -106,13 +106,29 @@ const requestTokenConversion = asyncHandler(async (req, res) => {
     return errorResponse(res, "Project details not found", 404)
   }
 
+  // Prevent duplicate conversion requests for the same project within 24 hours
+  const existingRequest = await TokenToFiatConversion.findOne({
+    socialProjectUser: req.user._id,
+    relatedProject: projectId,
+    status: { $in: ["pending", "approved_by_government"] }, // Only check active requests
+    createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }, // Last 24 hours
+  })
+
+  if (existingRequest) {
+    return errorResponse(
+      res,
+      `You already have an active conversion request (${existingRequest.requestId}) for this project. Please wait for it to be processed or rejected before creating a new one.`,
+      400,
+    )
+  }
+
   // Calculate fiat amount
   const fiatAmount = tokenAmount * conversionRate
 
   // Generate unique request ID
   const requestId = `CONV-${Date.now()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`
 
-  // Create conversion request
+  // Create conversion request in pending state FIRST
   const conversionRequest = new TokenToFiatConversion({
     requestId,
     socialProjectUser: req.user._id,
@@ -131,8 +147,46 @@ const requestTokenConversion = asyncHandler(async (req, res) => {
       country: bankDetails.country,
     },
     status: "pending",
+    tokensReserved: true, // Flag to track that tokens are reserved/deducted
+    reservedAt: new Date(),
   })
 
+  await conversionRequest.save()
+
+  console.log(
+    "[v0] Token conversion request created:",
+    requestId,
+    "- Deducting",
+    tokenAmount,
+    "tokens immediately",
+  )
+
+  // IMMEDIATELY deduct tokens from user wallet (Pessimistic locking approach)
+  user.tokenBalance -= tokenAmount
+  await user.save()
+
+  console.log("[v0] Tokens deducted. New balance:", user.tokenBalance)
+
+  // Create transaction record for the deduction
+  const transaction = new TokenTransaction({
+    transactionId: `CONV-HOLD-${requestId}`,
+    transactionType: "hold",
+    transactionDirection: "debit",
+    fromUser: user._id,
+    toUser: user._id,
+    amount: tokenAmount,
+    tokenType: "civic",
+    relatedProject: projectId,
+    status: "pending", // Transaction is pending until conversion is approved
+    description: `Token conversion request hold - Request ID: ${requestId}`,
+    category: "conversion",
+    relatedConversionRequest: conversionRequest._id,
+  })
+
+  await transaction.save()
+
+  // Store transaction ID in conversion request
+  conversionRequest.tokenTransactionId = transaction._id
   await conversionRequest.save()
 
   successResponse(res, "Token conversion request created successfully", {
@@ -142,7 +196,9 @@ const requestTokenConversion = asyncHandler(async (req, res) => {
     fiatAmount: conversionRequest.fiatAmount,
     fiatCurrency: conversionRequest.fiatCurrency,
     createdAt: conversionRequest.createdAt,
-    message: "Please wait for government approval and payment processing",
+    newTokenBalance: user.tokenBalance,
+    message:
+      "Tokens have been reserved from your wallet. They will be released if your request is rejected.",
   })
 })
 
@@ -273,7 +329,10 @@ const rejectConversionRequest = asyncHandler(async (req, res) => {
     return errorResponse(res, "Rejection reason is required", 400)
   }
 
-  const request = await TokenToFiatConversion.findOne({ requestId })
+  const request = await TokenToFiatConversion.findOne({ requestId }).populate(
+    "socialProjectUser",
+    "_id fullName email tokenBalance",
+  )
 
   if (!request) {
     return errorResponse(res, "Conversion request not found", 404)
@@ -281,6 +340,36 @@ const rejectConversionRequest = asyncHandler(async (req, res) => {
 
   if (request.status === "paid" || request.status === "rejected") {
     return errorResponse(res, `Cannot reject request with status: ${request.status}`, 400)
+  }
+
+  // If tokens were reserved, refund them back to user
+  if (request.tokensReserved) {
+    console.log("[v0] Refunding tokens for rejected request:", requestId, "- Amount:", request.tokenAmount)
+
+    const user = request.socialProjectUser
+    user.tokenBalance += request.tokenAmount
+    await user.save()
+
+    console.log("[v0] Tokens refunded. New balance:", user.tokenBalance)
+
+    // Create refund transaction record
+    const refundTransaction = new TokenTransaction({
+      transactionId: `CONV-REFUND-${requestId}`,
+      transactionType: "refund",
+      transactionDirection: "credit",
+      fromUser: user._id,
+      toUser: user._id,
+      amount: request.tokenAmount,
+      tokenType: "civic",
+      relatedProject: request.relatedProject,
+      approvedBy: req.user._id,
+      status: "completed",
+      description: `Token conversion request rejected and refunded - Request ID: ${requestId} - Reason: ${rejectionReason}`,
+      category: "conversion",
+      processedAt: new Date(),
+    })
+
+    await refundTransaction.save()
   }
 
   // Update request status
@@ -295,10 +384,15 @@ const rejectConversionRequest = asyncHandler(async (req, res) => {
     requestId: request.requestId,
     status: request.status,
     rejectionReason: request.rejectionReason,
+    tokensRefunded: request.tokensReserved ? request.tokenAmount : 0,
+    userTokenBalance: request.socialProjectUser.tokenBalance,
+    message: request.tokensReserved
+      ? `Request rejected. ${request.tokenAmount} tokens have been refunded to user wallet.`
+      : "Request rejected. No tokens were refunded.",
   })
 })
 
-// @desc    Mark conversion as paid and deduct tokens from wallet
+// @desc    Mark conversion as paid (tokens already deducted at request time)
 // @route   PATCH /api/token-conversion/requests/:requestId/mark-paid
 // @access  Private (Government User)
 const markConversionAsPaid = asyncHandler(async (req, res) => {
@@ -333,18 +427,15 @@ const markConversionAsPaid = asyncHandler(async (req, res) => {
 
   const user = request.socialProjectUser
 
-  // Check if user has sufficient tokens
-  if (user.tokenBalance < request.tokenAmount) {
-    return errorResponse(
-      res,
-      `User has insufficient tokens. Available: ${user.tokenBalance}, Required: ${request.tokenAmount}`,
-      400,
-    )
-  }
+  console.log(
+    "[v0] Marking conversion as paid:",
+    requestId,
+    "- Tokens already deducted at request time",
+  )
 
-  // Create transaction record
+  // Create payment completion transaction record
   const transaction = new TokenTransaction({
-    transactionId: `CONV-DEBIT-${transactionId}`,
+    transactionId: `CONV-PAID-${transactionId}`,
     transactionType: "spend",
     transactionDirection: "debit",
     fromUser: user._id,
@@ -355,16 +446,12 @@ const markConversionAsPaid = asyncHandler(async (req, res) => {
     issuedBy: req.user._id,
     approvedBy: req.user._id,
     status: "completed",
-    description: `Token to Fiat Conversion - Request ID: ${requestId}`,
+    description: `Token to Fiat Conversion Completed - Request ID: ${requestId} - Payment Ref: ${transactionId}`,
     category: "conversion",
     processedAt: new Date(),
   })
 
   await transaction.save()
-
-  // Deduct tokens from user wallet
-  user.tokenBalance -= request.tokenAmount
-  await user.save()
 
   // Update conversion request with payment details
   request.status = "paid"
@@ -380,16 +467,18 @@ const markConversionAsPaid = asyncHandler(async (req, res) => {
   }
 
   request.tokenTransactionId = transaction._id
+  request.tokensReserved = false // Tokens are no longer reserved, conversion is complete
 
   await request.save()
 
-  successResponse(res, "Conversion marked as paid and tokens deducted successfully", {
+  successResponse(res, "Conversion marked as paid successfully", {
     requestId: request.requestId,
     status: request.status,
     paidAt: request.paymentDetails.paidAt,
     userTokenBalance: user.tokenBalance,
     transactionId: transaction.transactionId,
-    message: "Tokens have been deducted from user wallet",
+    message:
+      "Conversion payment completed successfully. Tokens were deducted when the request was created.",
   })
 })
 
