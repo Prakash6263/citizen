@@ -11,7 +11,7 @@ const tokenTransactionSchema = new mongoose.Schema(
     transactionType: {
       type: String,
       required: true,
-      enum: ["issue", "transfer", "spend", "reward", "penalty", "refund"],
+      enum: ["issue", "transfer", "spend", "reward", "penalty", "refund", "hold"],
     },
 
     transactionDirection: {
