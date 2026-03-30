@@ -214,7 +214,6 @@ const getMySupportedProjects = asyncHandler(async (req, res) => {
   const supports = await ProjectSupport.find({ citizen: userId })
     .populate({
       path: "projectRegistration",
-      select: "projectOrganizationName city state country projects user",
       populate: {
         path: "user",
         select: "fullName email avatar",
@@ -246,13 +245,27 @@ const getMySupportedProjects = asyncHandler(async (req, res) => {
       return {
         _id: support._id,
         supportId: support.supportId,
-        projectTitle: project.projectTitle,
-        projectType: project.projectType,
-        projectDescription: project.projectDescription,
-        organizationName: support.projectRegistration.projectOrganizationName,
-        organizationCity: support.projectRegistration.city,
-        organizationState: support.projectRegistration.state,
-        organizationCountry: support.projectRegistration.country,
+        // Return complete project object with all fields
+        project: {
+          ...project,
+          fundingProgress: {
+            funded: project.tokensFunded,
+            goal: project.fundingGoal,
+            percentage: project.fundingGoal > 0 ? Math.round((project.tokensFunded / project.fundingGoal) * 100) : 0,
+          },
+        },
+        // Organization info
+        organizationInfo: {
+          name: support.projectRegistration.projectOrganizationName,
+          city: support.projectRegistration.city,
+          state: support.projectRegistration.state,
+          country: support.projectRegistration.country,
+          responsiblePersonFullName: support.projectRegistration.responsiblePersonFullName,
+          personPositionRole: support.projectRegistration.personPositionRole,
+          contactNumber: support.projectRegistration.contactNumber,
+          emailAddress: support.projectRegistration.emailAddress,
+        },
+        // Creator info
         createdBy: support.projectRegistration.user
           ? {
               _id: support.projectRegistration.user._id,
@@ -261,13 +274,11 @@ const getMySupportedProjects = asyncHandler(async (req, res) => {
               avatar: support.projectRegistration.user.avatar,
             }
           : null,
-        tokensSpent: support.tokensSpent,
-        fundingProgress: {
-          funded: project.tokensFunded,
-          goal: project.fundingGoal,
-          percentage: project.fundingGoal > 0 ? Math.round((project.tokensFunded / project.fundingGoal) * 100) : 0,
+        // Citizen's support info
+        citizenSupport: {
+          tokensSpent: support.tokensSpent,
+          supportedAt: support.supportedAt,
         },
-        supportedAt: support.supportedAt,
       }
     })
     .filter((item) => item !== null)
