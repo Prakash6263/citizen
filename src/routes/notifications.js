@@ -3,6 +3,7 @@ const { body, validationResult, query } = require("express-validator")
 const router = express.Router()
 
 const User = require("../models/User")
+const Notification = require("../models/Notification")
 const {
   sendTestNotification,
   sendNotification,
@@ -376,4 +377,466 @@ router.post(
     }
   }
 )
+
+/**
+ * @route   GET /api/notifications
+ * @desc    Get all notifications for a user, filtered by userType
+ * @access  Private
+ * @query   { userId: string, userType?: string, isRead?: boolean, limit?: number, skip?: number }
+ */
+router.get(
+  "/",
+  [
+    query("userId")
+      .trim()
+      .notEmpty()
+      .withMessage("User ID is required"),
+    query("userType")
+      .optional()
+      .isIn(["citizen", "social_project", "government"])
+      .withMessage("Invalid user type"),
+    query("isRead")
+      .optional()
+      .isBoolean()
+      .withMessage("isRead must be a boolean"),
+    query("limit")
+      .optional()
+      .isInt({ min: 1, max: 100 })
+      .withMessage("Limit must be between 1 and 100"),
+    query("skip")
+      .optional()
+      .isInt({ min: 0 })
+      .withMessage("Skip must be a non-negative integer"),
+  ],
+  handleValidationErrors,
+  async (req, res) => {
+    try {
+      const { userId, userType, isRead, limit = 20, skip = 0 } = req.query
+
+      // Verify user exists
+      const user = await User.findById(userId)
+      if (!user) {
+        return res.status(404).json({
+          status: "error",
+          message: "User not found",
+        })
+      }
+
+      // Build query filter
+      const filter = {
+        userId,
+        isDeleted: false,
+      }
+
+      // Filter by user type if provided
+      if (userType) {
+        filter.userType = userType
+      } else {
+        // Use user's actual type if not specified
+        filter.userType = user.userType
+      }
+
+      // Filter by read status if provided
+      if (isRead !== undefined) {
+        filter.isRead = isRead === "true"
+      }
+
+      // Get total count
+      const total = await Notification.countDocuments(filter)
+
+      // Get paginated notifications
+      const notifications = await Notification.find(filter)
+        .sort({ createdAt: -1 })
+        .limit(parseInt(limit))
+        .skip(parseInt(skip))
+        .populate("userId", "email fullName userType")
+        .populate("senderId", "email fullName")
+
+      return res.status(200).json({
+        status: "success",
+        data: {
+          notifications,
+          pagination: {
+            total,
+            limit: parseInt(limit),
+            skip: parseInt(skip),
+            pages: Math.ceil(total / limit),
+          },
+        },
+      })
+    } catch (error) {
+      console.error("[v0] Error fetching notifications:", error.message)
+      res.status(500).json({
+        status: "error",
+        message: "Internal server error",
+        error: error.message,
+      })
+    }
+  }
+)
+
+/**
+ * @route   POST /api/notifications/create
+ * @desc    Create a new notification for a user
+ * @access  Private
+ * @body    { userId: string, title: string, body: string, type?: string, priority?: string, data?: object, relatedId?: string, relatedModel?: string }
+ */
+router.post(
+  "/create",
+  [
+    body("userId")
+      .trim()
+      .notEmpty()
+      .withMessage("User ID is required"),
+    body("title")
+      .trim()
+      .notEmpty()
+      .withMessage("Title is required")
+      .isLength({ max: 255 })
+      .withMessage("Title cannot exceed 255 characters"),
+    body("body")
+      .trim()
+      .notEmpty()
+      .withMessage("Body is required")
+      .isLength({ max: 500 })
+      .withMessage("Body cannot exceed 500 characters"),
+    body("type")
+      .optional()
+      .isIn(["project_update", "system", "alert", "message", "reminder", "other"])
+      .withMessage("Invalid notification type"),
+    body("priority")
+      .optional()
+      .isIn(["low", "medium", "high", "critical"])
+      .withMessage("Invalid priority level"),
+  ],
+  handleValidationErrors,
+  async (req, res) => {
+    try {
+      const { userId, title, body, type = "other", priority = "medium", data = {}, relatedId, relatedModel, senderId } = req.body
+
+      // Verify user exists
+      const user = await User.findById(userId)
+      if (!user) {
+        return res.status(404).json({
+          status: "error",
+          message: "User not found",
+        })
+      }
+
+      // Create notification
+      const notification = new Notification({
+        userId,
+        userType: user.userType,
+        title,
+        body,
+        type,
+        priority,
+        data,
+        relatedId: relatedId || null,
+        relatedModel: relatedModel || null,
+        senderId: senderId || null,
+      })
+
+      await notification.save()
+
+      return res.status(201).json({
+        status: "success",
+        message: "Notification created successfully",
+        data: {
+          notification,
+        },
+      })
+    } catch (error) {
+      console.error("[v0] Error creating notification:", error.message)
+      res.status(500).json({
+        status: "error",
+        message: "Internal server error",
+        error: error.message,
+      })
+    }
+  }
+)
+
+/**
+ * @route   PATCH /api/notifications/:notificationId/mark-read
+ * @desc    Mark a notification as read
+ * @access  Private
+ * @params  { notificationId: string }
+ */
+router.patch(
+  "/:notificationId/mark-read",
+  async (req, res) => {
+    try {
+      const { notificationId } = req.params
+
+      const notification = await Notification.findByIdAndUpdate(
+        notificationId,
+        {
+          isRead: true,
+          readAt: new Date(),
+        },
+        { new: true }
+      )
+
+      if (!notification) {
+        return res.status(404).json({
+          status: "error",
+          message: "Notification not found",
+        })
+      }
+
+      return res.status(200).json({
+        status: "success",
+        message: "Notification marked as read",
+        data: {
+          notification,
+        },
+      })
+    } catch (error) {
+      console.error("[v0] Error marking notification as read:", error.message)
+      res.status(500).json({
+        status: "error",
+        message: "Internal server error",
+        error: error.message,
+      })
+    }
+  }
+)
+
+/**
+ * @route   PATCH /api/notifications/mark-all-read/:userId
+ * @desc    Mark all notifications as read for a specific user
+ * @access  Private
+ * @params  { userId: string }
+ * @query   { userType?: string }
+ */
+router.patch(
+  "/mark-all-read/:userId",
+  [
+    query("userType")
+      .optional()
+      .isIn(["citizen", "social_project", "government"])
+      .withMessage("Invalid user type"),
+  ],
+  handleValidationErrors,
+  async (req, res) => {
+    try {
+      const { userId } = req.params
+      const { userType } = req.query
+
+      // Build filter
+      const filter = {
+        userId,
+        isDeleted: false,
+        isRead: false,
+      }
+
+      if (userType) {
+        filter.userType = userType
+      }
+
+      const result = await Notification.updateMany(
+        filter,
+        {
+          isRead: true,
+          readAt: new Date(),
+        }
+      )
+
+      return res.status(200).json({
+        status: "success",
+        message: "All notifications marked as read",
+        data: {
+          modifiedCount: result.modifiedCount,
+        },
+      })
+    } catch (error) {
+      console.error("[v0] Error marking all notifications as read:", error.message)
+      res.status(500).json({
+        status: "error",
+        message: "Internal server error",
+        error: error.message,
+      })
+    }
+  }
+)
+
+/**
+ * @route   DELETE /api/notifications/:notificationId
+ * @desc    Delete (soft delete) a notification
+ * @access  Private
+ * @params  { notificationId: string }
+ */
+router.delete(
+  "/:notificationId",
+  async (req, res) => {
+    try {
+      const { notificationId } = req.params
+
+      const notification = await Notification.findByIdAndUpdate(
+        notificationId,
+        {
+          isDeleted: true,
+          deletedAt: new Date(),
+        },
+        { new: true }
+      )
+
+      if (!notification) {
+        return res.status(404).json({
+          status: "error",
+          message: "Notification not found",
+        })
+      }
+
+      return res.status(200).json({
+        status: "success",
+        message: "Notification deleted successfully",
+        data: {
+          notification,
+        },
+      })
+    } catch (error) {
+      console.error("[v0] Error deleting notification:", error.message)
+      res.status(500).json({
+        status: "error",
+        message: "Internal server error",
+        error: error.message,
+      })
+    }
+  }
+)
+
+/**
+ * @route   DELETE /api/notifications/clear-all/:userId
+ * @desc    Clear all notifications for a specific user (soft delete)
+ * @access  Private
+ * @params  { userId: string }
+ * @query   { userType?: string }
+ */
+router.delete(
+  "/clear-all/:userId",
+  [
+    query("userType")
+      .optional()
+      .isIn(["citizen", "social_project", "government"])
+      .withMessage("Invalid user type"),
+  ],
+  handleValidationErrors,
+  async (req, res) => {
+    try {
+      const { userId } = req.params
+      const { userType } = req.query
+
+      // Verify user exists
+      const user = await User.findById(userId)
+      if (!user) {
+        return res.status(404).json({
+          status: "error",
+          message: "User not found",
+        })
+      }
+
+      // Build filter
+      const filter = {
+        userId,
+        isDeleted: false,
+      }
+
+      if (userType) {
+        filter.userType = userType
+      } else {
+        filter.userType = user.userType
+      }
+
+      const result = await Notification.updateMany(
+        filter,
+        {
+          isDeleted: true,
+          deletedAt: new Date(),
+        }
+      )
+
+      return res.status(200).json({
+        status: "success",
+        message: "All notifications cleared successfully",
+        data: {
+          clearedCount: result.modifiedCount,
+        },
+      })
+    } catch (error) {
+      console.error("[v0] Error clearing notifications:", error.message)
+      res.status(500).json({
+        status: "error",
+        message: "Internal server error",
+        error: error.message,
+      })
+    }
+  }
+)
+
+/**
+ * @route   GET /api/notifications/count/:userId
+ * @desc    Get unread notification count for a user
+ * @access  Private
+ * @params  { userId: string }
+ * @query   { userType?: string }
+ */
+router.get(
+  "/count/:userId",
+  [
+    query("userType")
+      .optional()
+      .isIn(["citizen", "social_project", "government"])
+      .withMessage("Invalid user type"),
+  ],
+  handleValidationErrors,
+  async (req, res) => {
+    try {
+      const { userId } = req.params
+      const { userType } = req.query
+
+      // Verify user exists
+      const user = await User.findById(userId)
+      if (!user) {
+        return res.status(404).json({
+          status: "error",
+          message: "User not found",
+        })
+      }
+
+      // Build filter
+      const filter = {
+        userId,
+        isDeleted: false,
+        isRead: false,
+      }
+
+      if (userType) {
+        filter.userType = userType
+      } else {
+        filter.userType = user.userType
+      }
+
+      const unreadCount = await Notification.countDocuments(filter)
+
+      return res.status(200).json({
+        status: "success",
+        data: {
+          userId,
+          userType: user.userType,
+          unreadCount,
+        },
+      })
+    } catch (error) {
+      console.error("[v0] Error getting notification count:", error.message)
+      res.status(500).json({
+        status: "error",
+        message: "Internal server error",
+        error: error.message,
+      })
+    }
+  }
+)
+
 module.exports = router
