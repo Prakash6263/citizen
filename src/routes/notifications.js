@@ -1,3 +1,38 @@
+/**
+ * ================================================================================
+ * NOTIFICATION MANAGEMENT API
+ * ================================================================================
+ * This module handles all notification-related operations for the application
+ * 
+ * SUPPORTED USER TYPES: citizen, social_project, government
+ * 
+ * API ENDPOINTS OVERVIEW:
+ * 
+ * TESTING & SENDING:
+ *   - POST /api/notifications/test - Send test notification by email
+ *   - POST /api/notifications/test-by-user-id - Send test notification by user ID
+ *   - POST /api/notifications/send - Send custom notification
+ *   - POST /api/notifications/update-fcm-token - Update FCM token for user
+ *   - GET /api/notifications/check-fcm-token - Check if user has FCM token
+ * 
+ * RETRIEVING NOTIFICATIONS:
+ *   - GET /api/notifications - Get all notifications (with pagination & filtering)
+ *   - GET /api/notifications/count/:userId - Get unread notification count
+ * 
+ * MANAGING NOTIFICATIONS:
+ *   - POST /api/notifications/create - Create new notification
+ *   - PATCH /api/notifications/:notificationId/mark-read - Mark single as read
+ *   - PATCH /api/notifications/mark-all-read/:userId - Mark all as read
+ *   - DELETE /api/notifications/:notificationId - Delete single notification
+ *   - DELETE /api/notifications/clear-all/:userId - Clear all notifications
+ * 
+ * AUTHENTICATION ENDPOINTS (see /api/auth/):
+ *   - POST /api/auth/citizen-login - Login with citizen userType + FCM token
+ *   - POST /api/auth/social-login - Login with social_project userType + FCM token
+ *   - POST /api/auth/government-login - Login with government userType + FCM token
+ * ================================================================================
+ */
+
 const express = require("express")
 const { body, validationResult, query } = require("express-validator")
 const router = express.Router()
