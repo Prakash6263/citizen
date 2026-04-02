@@ -76,6 +76,12 @@ const loginValidation = [
     .withMessage("Password is required")
     .isLength({ max: 128 })
     .withMessage("Password cannot exceed 128 characters"),
+
+  body("fcmToken")
+    .optional({ checkFalsy: true })
+    .trim()
+    .isLength({ max: 512 })
+    .withMessage("FCM token cannot exceed 512 characters"),
 ]
 
 // Forgot password validation
