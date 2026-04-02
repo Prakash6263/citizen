@@ -136,7 +136,7 @@ const login = asyncHandler(async (req, res) => {
     return ResponseHelper.validationError(res, errors.array())
   }
 
-  const { identifier, password } = req.body
+  const { identifier, password, fcmToken } = req.body
   const ip = req.ip
   const userAgent = req.get("User-Agent")
 
@@ -244,6 +244,12 @@ const login = asyncHandler(async (req, res) => {
   user.lastLogin = new Date()
   user.loginCount += 1
   user.lastLoginIP = ip
+  
+  // Store FCM token if provided (optional for push notifications)
+  if (fcmToken) {
+    user.fcmToken = fcmToken
+  }
+  
   await user.save({ validateBeforeSave: false })
 
   // Tokens

@@ -221,6 +221,12 @@ const userSchema = new mongoose.Schema(
     // Account creation tracking
     registrationIP: String,
     lastLoginIP: String,
+
+    // Firebase Cloud Messaging token for push notifications
+    fcmToken: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true, // Adds createdAt and updatedAt
