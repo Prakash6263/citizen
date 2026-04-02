@@ -55,9 +55,9 @@ const notificationSchema = new mongoose.Schema(
       default: "other",
     },
 
-    // Reference to related resources
+    // Reference to related resources (can be ObjectId or string)
     relatedId: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: String,
       default: null,
     },
 

@@ -574,11 +574,36 @@ router.post(
 
       await notification.save()
 
+      // Send FCM notification if user has FCM token
+      if (user.fcmToken) {
+        try {
+          const fcmResult = await sendNotification(
+            user.fcmToken,
+            title,
+            body,
+            {
+              ...data,
+              notificationId: notification._id.toString(),
+              type,
+              priority,
+            }
+          )
+          
+          console.log("[v0] FCM notification result:", fcmResult)
+        } catch (fcmError) {
+          console.error("[v0] FCM sending error:", fcmError.message)
+          // Don't fail the request if FCM fails, notification is still created in DB
+        }
+      } else {
+        console.log("[v0] User has no FCM token, notification saved but not sent to device")
+      }
+
       return res.status(201).json({
         status: "success",
         message: "Notification created successfully",
         data: {
           notification,
+          fcmNotSent: !user.fcmToken,
         },
       })
     } catch (error) {

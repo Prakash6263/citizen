@@ -22,6 +22,24 @@ const initializeFirebase = () => {
 
 module.exports = { initializeFirebase };
 
+/**
+ * Convert all data values to strings for FCM compliance
+ * FCM requires all data fields to be strings
+ */
+const convertDataToStrings = (data) => {
+  const stringData = {}
+  for (const [key, value] of Object.entries(data)) {
+    if (value === null || value === undefined) {
+      stringData[key] = ""
+    } else if (typeof value === "object") {
+      stringData[key] = JSON.stringify(value)
+    } else {
+      stringData[key] = String(value)
+    }
+  }
+  return stringData
+}
+
 // Send a test notification to a user
 const sendTestNotification = async (fcmToken, title = "Test Notification", body = "This is a test notification from your Municipality App") => {
   try {
@@ -30,10 +48,10 @@ const sendTestNotification = async (fcmToken, title = "Test Notification", body 
         title,
         body,
       },
-      data: {
+      data: convertDataToStrings({
         timestamp: new Date().toISOString(),
         type: "test",
-      },
+      }),
       token: fcmToken,
     }
 
@@ -63,10 +81,10 @@ const sendNotification = async (fcmToken, title, body, data = {}) => {
         title,
         body,
       },
-      data: {
+      data: convertDataToStrings({
         ...data,
         timestamp: new Date().toISOString(),
-      },
+      }),
       token: fcmToken,
     }
 
@@ -92,10 +110,10 @@ const sendMultipleNotifications = async (fcmTokens, title, body, data = {}) => {
         title,
         body,
       },
-      data: {
+      data: convertDataToStrings({
         ...data,
         timestamp: new Date().toISOString(),
-      },
+      }),
       token,
     }))
 
