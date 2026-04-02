@@ -29,3 +29,8 @@ next-env.d.ts
 # Local file uploads
 /uploads
 /logs
+
+
+src/config/firebase-service-account.json
+*.json
+.env
