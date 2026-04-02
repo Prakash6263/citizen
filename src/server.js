@@ -32,6 +32,10 @@ const policyRoutes = require("./routes/policies")
 const fundRequestRoutes = require("./routes/fundRequests")
 const tokenRequestRoutes = require("./routes/tokenRequests")
 const tokenConversionRoutes = require("./routes/tokenConversion")
+const notificationRoutes = require("./routes/notifications")
+
+// Initialize Firebase
+const { initializeFirebase } = require("./utils/firebaseService")
 
 const app = express()
 
@@ -162,6 +166,7 @@ app.use("/api/policies", policyRoutes)
 app.use("/api/fund-requests", fundRequestRoutes)
 app.use("/api/token-requests", tokenRequestRoutes)
 app.use("/api/token-conversion", tokenConversionRoutes)
+app.use("/api/notifications", notificationRoutes)
 
 // Error handling middleware (must be last)
 const notFound = (req, res, next) => {
@@ -199,6 +204,9 @@ const startServer = async () => {
   await connectDB()
 
   await localStorageService.initializeStorage()
+
+  // Initialize Firebase Admin SDK
+  initializeFirebase()
 
   app.listen(PORT, () => {
     console.log(`
