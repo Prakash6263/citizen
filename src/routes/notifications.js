@@ -1,6 +1,7 @@
 const express = require("express")
 const { body, validationResult, query } = require("express-validator")
 const router = express.Router()
+const admin = require("firebase-admin")
 
 const User = require("../models/User")
 const {
@@ -8,6 +9,18 @@ const {
   sendNotification,
   sendMultipleNotifications,
 } = require("../utils/firebaseService")
+
+// Middleware to check if Firebase is initialized
+const checkFirebaseInitialized = (req, res, next) => {
+  if (!admin.apps || admin.apps.length === 0) {
+    return res.status(503).json({
+      status: "error",
+      message: "Firebase Cloud Messaging is not configured",
+      hint: "Set FIREBASE_SERVICE_ACCOUNT_JSON environment variable to enable notifications",
+    })
+  }
+  next()
+}
 
 // Middleware to check validation errors
 const handleValidationErrors = (req, res, next) => {
@@ -47,6 +60,7 @@ router.post(
       .withMessage("Body cannot exceed 500 characters"),
   ],
   handleValidationErrors,
+  checkFirebaseInitialized,
   async (req, res) => {
     try {
       const { email, title = "Test Notification", body = "This is a test notification from your Municipality App" } = req.body
@@ -128,6 +142,7 @@ router.post(
       .withMessage("Body cannot exceed 500 characters"),
   ],
   handleValidationErrors,
+  checkFirebaseInitialized,
   async (req, res) => {
     try {
       const { userId, title = "Test Notification", body = "This is a test notification from your Municipality App" } = req.body
@@ -213,6 +228,7 @@ router.post(
       .withMessage("Body cannot exceed 500 characters"),
   ],
   handleValidationErrors,
+  checkFirebaseInitialized,
   async (req, res) => {
     try {
       const { email, title, body, data = {} } = req.body
