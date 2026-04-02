@@ -29,3 +29,7 @@ next-env.d.ts
 # Local file uploads
 /uploads
 /logs
+
+# Firebase credentials (NEVER commit these)
+*firebase-adminsdk*.json
+firebase-key.json

@@ -1,30 +1,49 @@
 const admin = require("firebase-admin")
+const fs = require("fs")
 const path = require("path")
 
 // Initialize Firebase Admin SDK
 const initializeFirebase = () => {
   try {
-    // Get the service account credentials path from environment or use default
-    const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || 
-      path.join(__dirname, "../../citixen-app-firebase-adminsdk.json")
-    
     // Check if Firebase is already initialized
     if (admin.apps.length === 0) {
-      const serviceAccount = require(serviceAccountPath)
+      let serviceAccount
+      
+      // Method 1: Get credentials from environment variable (JSON string)
+      if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+        serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON)
+      }
+      // Method 2: Get credentials from file path
+      else if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
+        const credentialsPath = path.resolve(process.env.FIREBASE_SERVICE_ACCOUNT_PATH)
+        if (fs.existsSync(credentialsPath)) {
+          serviceAccount = JSON.parse(fs.readFileSync(credentialsPath, "utf8"))
+        } else {
+          throw new Error(`Firebase credentials file not found at: ${credentialsPath}`)
+        }
+      }
+      // Method 3: Try default local path (development only)
+      else {
+        const defaultPath = path.join(__dirname, "../../citixen-app-firebase-adminsdk.json")
+        if (fs.existsSync(defaultPath)) {
+          serviceAccount = JSON.parse(fs.readFileSync(defaultPath, "utf8"))
+        } else {
+          throw new Error("Firebase credentials not found. Set FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_SERVICE_ACCOUNT_PATH")
+        }
+      }
       
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
-        databaseURL: process.env.FIREBASE_DATABASE_URL,
+        projectId: serviceAccount.project_id,
       })
       
-      console.log("✅ Firebase Admin SDK initialized successfully")
+      console.log("✅ Firebase Admin SDK initialized successfully for project:", serviceAccount.project_id)
     }
     
     return admin
   } catch (error) {
     console.error("❌ Firebase initialization error:", error.message)
-    console.error("Make sure FIREBASE_SERVICE_ACCOUNT_PATH is set in .env or the service account file exists")
-    return null
+    throw error
   }
 }
 
